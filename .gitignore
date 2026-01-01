@@ -1,0 +1,44 @@
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+*.xcodeproj
+
+# CocoaPods
+Pods/
+*.xcworkspace
+
+# macOS
+.DS_Store
+
+# User-specific
+*.xcuserdata
+*.xcuserdatad
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Build artifacts
+build/
+*.build
+*.swiftmodule
+*.swiftdoc
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Config files with sensitive data
+HoneyBadgerApp/Config/Production.swift
