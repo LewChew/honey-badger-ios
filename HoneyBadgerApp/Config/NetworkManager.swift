@@ -28,24 +28,59 @@ class NetworkManager: ObservableObject {
     // MARK: - Authentication Methods
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.login)")!
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.login)")!
+        print("🔗 Attempting login to: \(url.absoluteString)")
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = ["email": email, "password": password]
+        let body = ["loginEmail": email, "loginPassword": password]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        if let bodyString = String(data: request.httpBody!, encoding: .utf8) {
+            print("📤 Request body: \(bodyString)")
+        }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+            print("📡 Received response: \(response)")
+        } catch let error as URLError {
+            print("❌ URLError: \(error.localizedDescription)")
+            print("   Error Code: \(error.code.rawValue)")
+            print("   Failing URL: \(error.failingURL?.absoluteString ?? "none")")
+            throw error
+        } catch {
+            print("❌ Unknown error: \(error)")
+            throw error
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Response is not HTTPURLResponse: \(type(of: response))")
             throw NetworkError.invalidResponse
         }
 
+        print("📊 HTTP Status Code: \(httpResponse.statusCode)")
+
         if httpResponse.statusCode == 200 {
-            let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
-            self.authToken = authResponse.token
-            return authResponse
+            // Debug: Print the raw response
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("📥 Login Response: \(jsonString)")
+            }
+
+            do {
+                let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+                self.authToken = authResponse.token
+                print("✅ Login decoded successfully. Token: \(authResponse.token.prefix(20))...")
+                return authResponse
+            } catch {
+                print("❌ Decoding error: \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("   Detailed error: \(decodingError)")
+                }
+                throw error
+            }
         } else {
             let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
             throw NetworkError.serverError(errorResponse?.message ?? "Login failed")
@@ -53,17 +88,22 @@ class NetworkManager: ObservableObject {
     }
 
     func signup(name: String, email: String, password: String, phone: String?) async throws -> AuthResponse {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.signup)")!
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.signup)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
-            "name": name,
-            "email": email,
-            "password": password,
-            "phone": phone ?? ""
+        var body: [String: Any] = [
+            "signupName": name,
+            "signupEmail": email,
+            "signupPassword": password
         ]
+
+        // Only include phone if it's not empty
+        if let phone = phone, !phone.isEmpty {
+            body["signupPhone"] = phone
+        }
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -82,8 +122,8 @@ class NetworkManager: ObservableObject {
         }
     }
 
-    func getCurrentUser() async throws -> User {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.me)")!
+    func getCurrentUser() async throws -> APIUser {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.me)")!
         let request = authenticatedRequest(url: url, method: "GET")
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -104,7 +144,7 @@ class NetworkManager: ObservableObject {
     }
 
     func logout() async throws {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.logout)")!
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.logout)")!
         let request = authenticatedRequest(url: url, method: "POST")
 
         let (_, response) = try await URLSession.shared.data(for: request)
@@ -123,7 +163,7 @@ class NetworkManager: ObservableObject {
     // MARK: - Gift Methods
 
     func sendGift(recipientPhone: String, giftType: String, challengeType: String, giftDetails: [String: Any]) async throws -> GiftResponse {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.sendGift)")!
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.sendGift)")!
         let request = authenticatedRequest(url: url, method: "POST", body: giftDetails)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -142,7 +182,7 @@ class NetworkManager: ObservableObject {
     }
 
     func getGifts() async throws -> [Gift] {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.gifts)")!
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.gifts)")!
         let request = authenticatedRequest(url: url, method: "GET")
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -159,10 +199,31 @@ class NetworkManager: ObservableObject {
         }
     }
 
+    func getReceivedGifts() async throws -> [Gift] {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.receivedGifts)")!
+        let request = authenticatedRequest(url: url, method: "GET")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            let giftsResponse = try JSONDecoder().decode(GiftsResponse.self, from: data)
+            return giftsResponse.gifts
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            throw NetworkError.serverError("Failed to get received gifts")
+        }
+    }
+
     // MARK: - Contact Methods
 
-    func getContacts() async throws -> [Contact] {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.contacts)")!
+    func getContacts() async throws -> [APIContact] {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.contacts)")!
         let request = authenticatedRequest(url: url, method: "GET")
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -179,8 +240,8 @@ class NetworkManager: ObservableObject {
         }
     }
 
-    func addContact(name: String, phone: String, email: String?, notes: String?) async throws -> Contact {
-        let url = URL(string: "\(APIConfig.baseURL)\(APIConfig.Endpoints.contacts)")!
+    func addContact(name: String, phone: String, email: String?, notes: String?) async throws -> APIContact {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.contacts)")!
 
         let body: [String: Any] = [
             "name": name,
@@ -206,6 +267,124 @@ class NetworkManager: ObservableObject {
         }
     }
 
+    // MARK: - Approval Methods
+
+    func getPendingApprovals() async throws -> [PendingApproval] {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.pendingApprovals)")!
+        let request = authenticatedRequest(url: url, method: "GET")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            let approvalsResponse = try JSONDecoder().decode(PendingApprovalsResponse.self, from: data)
+            return approvalsResponse.pendingApprovals
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            throw NetworkError.serverError("Failed to get pending approvals")
+        }
+    }
+
+    func approveSubmission(submissionId: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.reviewSubmission(id: submissionId))")!
+        let body: [String: Any] = ["action": "approve"]
+        let request = authenticatedRequest(url: url, method: "PUT", body: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Submission approved successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to approve submission")
+        }
+    }
+
+    func rejectSubmission(submissionId: String, reason: String?) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.reviewSubmission(id: submissionId))")!
+        var body: [String: Any] = ["action": "reject"]
+        if let reason = reason {
+            body["rejectionReason"] = reason
+        }
+        let request = authenticatedRequest(url: url, method: "PUT", body: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Submission rejected successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to reject submission")
+        }
+    }
+
+    // MARK: - Profile Methods
+
+    func updateProfile(name: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)/api/auth/profile")!
+        let body: [String: Any] = ["name": name]
+        let request = authenticatedRequest(url: url, method: "PUT", body: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Profile updated successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to update profile")
+        }
+    }
+
+    func changePassword(currentPassword: String, newPassword: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)/api/auth/password")!
+        let body: [String: Any] = [
+            "currentPassword": currentPassword,
+            "newPassword": newPassword
+        ]
+        let request = authenticatedRequest(url: url, method: "PUT", body: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Password changed successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            throw NetworkError.serverError("Current password is incorrect")
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to change password")
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func authenticatedRequest(url: URL, method: String = "GET", body: [String: Any]? = nil) -> URLRequest {
@@ -228,20 +407,28 @@ class NetworkManager: ObservableObject {
 // MARK: - Response Models
 
 struct AuthResponse: Codable {
+    let success: Bool
+    let message: String?
     let token: String
-    let user: User
+    let user: APIUser
 }
 
-struct User: Codable {
-    let id: String?
+struct APIUser: Codable {
+    let id: Int?
     let name: String
     let email: String
     let phone: String?
+    let createdAt: String?
+    let isActive: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, email, phone, createdAt, isActive
+    }
 }
 
 struct UserResponse: Codable {
     let success: Bool
-    let user: User
+    let user: APIUser
 }
 
 struct ErrorResponse: Codable {
@@ -255,13 +442,65 @@ struct GiftResponse: Codable {
     let challengeId: String?
 }
 
-struct Gift: Codable {
+struct Gift: Codable, Identifiable {
     let id: String
-    let recipientPhone: String
+    let recipientPhone: String?
+    let recipientEmail: String?
+    let recipientName: String?
     let giftType: String
+    let giftValue: String?
     let challengeType: String?
     let status: String
     let createdAt: String
+    // Enhanced fields
+    let senderName: String?
+    let senderEmail: String?
+    let challengeDescription: String?
+    let personalNote: String?
+    let message: String?
+    let duration: Int?
+    let deliveryMethod: String?
+    let reminderFrequency: String?
+    let verificationType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, recipientPhone, recipientEmail, recipientName
+        case giftType, giftValue, challengeType, status, createdAt
+        case senderName, senderEmail, challengeDescription
+        case personalNote, message, duration, deliveryMethod
+        case reminderFrequency, verificationType
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        recipientPhone = try container.decodeIfPresent(String.self, forKey: .recipientPhone)
+        recipientEmail = try container.decodeIfPresent(String.self, forKey: .recipientEmail)
+        recipientName = try container.decodeIfPresent(String.self, forKey: .recipientName)
+        giftType = try container.decode(String.self, forKey: .giftType)
+        giftValue = try container.decodeIfPresent(String.self, forKey: .giftValue)
+        challengeType = try container.decodeIfPresent(String.self, forKey: .challengeType)
+        status = try container.decode(String.self, forKey: .status)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        senderName = try container.decodeIfPresent(String.self, forKey: .senderName)
+        senderEmail = try container.decodeIfPresent(String.self, forKey: .senderEmail)
+        challengeDescription = try container.decodeIfPresent(String.self, forKey: .challengeDescription)
+        personalNote = try container.decodeIfPresent(String.self, forKey: .personalNote)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        deliveryMethod = try container.decodeIfPresent(String.self, forKey: .deliveryMethod)
+        reminderFrequency = try container.decodeIfPresent(String.self, forKey: .reminderFrequency)
+        verificationType = try container.decodeIfPresent(String.self, forKey: .verificationType)
+
+        // Handle duration which might come as Int or String
+        if let durationInt = try? container.decodeIfPresent(Int.self, forKey: .duration) {
+            duration = durationInt
+        } else if let durationString = try? container.decodeIfPresent(String.self, forKey: .duration),
+                  let durationInt = Int(durationString) {
+            duration = durationInt
+        } else {
+            duration = nil
+        }
+    }
 }
 
 struct GiftsResponse: Codable {
@@ -269,7 +508,7 @@ struct GiftsResponse: Codable {
     let gifts: [Gift]
 }
 
-struct Contact: Codable {
+struct APIContact: Codable {
     let id: String
     let name: String
     let phone: String
@@ -279,12 +518,41 @@ struct Contact: Codable {
 
 struct ContactResponse: Codable {
     let success: Bool
-    let contact: Contact
+    let contact: APIContact
 }
 
 struct ContactsResponse: Codable {
     let success: Bool
-    let contacts: [Contact]
+    let contacts: [APIContact]
+}
+
+// MARK: - Pending Approval Models
+
+struct PendingApproval: Identifiable, Codable {
+    let submissionId: String
+    let photoUrl: String
+    let submittedAt: String
+    let recipientName: String?
+    let recipientPhone: String?
+    let recipientEmail: String?
+    let giftType: String
+    let giftValue: String?
+    let giftId: String
+    let challengeDescription: String?
+
+    var id: String { submissionId }
+
+    enum CodingKeys: String, CodingKey {
+        case submissionId, photoUrl, submittedAt, recipientName
+        case recipientPhone, recipientEmail, giftType, giftValue
+        case giftId, challengeDescription
+    }
+}
+
+struct PendingApprovalsResponse: Codable {
+    let success: Bool
+    let pendingApprovals: [PendingApproval]
+    let count: Int
 }
 
 // MARK: - Network Errors
