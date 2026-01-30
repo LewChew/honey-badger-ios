@@ -795,10 +795,17 @@ struct DashboardScreen: View {
     @State private var showBadgersScreen = false
     @State private var showPendingApprovals = false
     @State private var contacts: [Contact] = []
-    @State private var sentGifts: [Gift] = []
-    @State private var loadingGifts = false
     @State private var selectedGift: Gift? = nil
     @State private var showGiftDetail = false
+
+    // Use shared state manager for gifts
+    private var sentGifts: [Gift] {
+        giftStateManager.sentGifts
+    }
+
+    private var loadingGifts: Bool {
+        giftStateManager.isLoadingSent
+    }
 
     var body: some View {
         NavigationView {
@@ -1173,23 +1180,7 @@ struct DashboardScreen: View {
 
     private func loadGifts() {
         Task {
-            await MainActor.run {
-                loadingGifts = true
-            }
-
-            do {
-                let gifts = try await networkManager.getGifts()
-                await MainActor.run {
-                    sentGifts = gifts
-                    loadingGifts = false
-                }
-                print("✅ Loaded \(gifts.count) gifts")
-            } catch {
-                print("❌ Error loading gifts: \(error)")
-                await MainActor.run {
-                    loadingGifts = false
-                }
-            }
+            await giftStateManager.refreshSentGifts()
         }
     }
 
@@ -1925,13 +1916,22 @@ struct RejectSubmissionSheet: View {
 
 struct BadgersInTheWildScreen: View {
     @Binding var isPresented: Bool
-    @StateObject private var networkManager = NetworkManager()
+    @StateObject private var giftStateManager = GiftStateManager.shared
     @State private var selectedTab = 0 // 0 = Sent, 1 = Received
-    @State private var sentGifts: [Gift] = []
-    @State private var receivedGifts: [Gift] = []
-    @State private var isLoading = false
     @State private var selectedGift: Gift? = nil
     @State private var showGiftDetail = false
+
+    private var isLoading: Bool {
+        giftStateManager.isLoadingSent || giftStateManager.isLoadingReceived
+    }
+
+    private var sentGifts: [Gift] {
+        giftStateManager.sentGifts
+    }
+
+    private var receivedGifts: [Gift] {
+        giftStateManager.receivedGifts
+    }
 
     var body: some View {
         NavigationView {
@@ -1941,8 +1941,8 @@ struct BadgersInTheWildScreen: View {
                 VStack(spacing: 0) {
                     // Segmented Control
                     Picker("Gift Type", selection: $selectedTab) {
-                        Text("Sent").tag(0)
-                        Text("Received").tag(1)
+                        Text("Sent (\(sentGifts.count))").tag(0)
+                        Text("Received (\(receivedGifts.count))").tag(1)
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     .padding(.horizontal, 20)
@@ -1980,6 +1980,9 @@ struct BadgersInTheWildScreen: View {
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 20)
                             }
+                            .refreshable {
+                                await giftStateManager.refreshAll()
+                            }
                         }
                     }
                 }
@@ -1993,16 +1996,26 @@ struct BadgersInTheWildScreen: View {
                     }
                     .foregroundColor(HBTheme.primaryYellow)
                 }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        Task {
+                            await giftStateManager.refreshAll()
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(HBTheme.primaryYellow)
+                    }
+                }
             }
             .sheet(item: $selectedGift) { gift in
                 GiftDetailScreen(gift: gift, isSentGift: selectedTab == 0)
                     .presentationBackground(HBTheme.darkBg)
             }
             .onAppear {
-                loadGifts()
-            }
-            .onChange(of: selectedTab) {
-                // Reload when tab changes if needed
+                Task {
+                    await giftStateManager.refreshAll()
+                }
             }
         }
     }
@@ -2031,31 +2044,6 @@ struct BadgersInTheWildScreen: View {
         .padding(.horizontal, 40)
     }
 
-    private func loadGifts() {
-        Task {
-            await MainActor.run {
-                isLoading = true
-            }
-
-            do {
-                async let sentGiftsTask = networkManager.getGifts()
-                async let receivedGiftsTask = networkManager.getReceivedGifts()
-
-                let (sent, received) = try await (sentGiftsTask, receivedGiftsTask)
-
-                await MainActor.run {
-                    sentGifts = sent
-                    receivedGifts = received
-                    isLoading = false
-                }
-            } catch {
-                print("❌ Error loading gifts: \(error)")
-                await MainActor.run {
-                    isLoading = false
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Enhanced Badger Row
