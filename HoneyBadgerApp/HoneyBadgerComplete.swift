@@ -158,10 +158,18 @@ class SimpleAuthManager: ObservableObject {
             do {
                 let response = try await networkManager.signup(name: name, email: email, password: password, phone: nil)
                 await MainActor.run {
+                    // Clear any cached data from previous user before setting new auth state
+                    GiftStateManager.shared.clearState()
+
                     self.isAuthenticated = true
                     self.currentUser = User(id: response.user.id ?? 0, name: response.user.name, email: response.user.email)
                     self.isLoading = false
                     print("✅ Signup successful: \(response.user.name)")
+
+                    // Refresh gift data for the new user (will be empty for new users)
+                    Task {
+                        await GiftStateManager.shared.refreshAll()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -181,10 +189,18 @@ class SimpleAuthManager: ObservableObject {
             do {
                 let response = try await networkManager.login(email: email, password: password)
                 await MainActor.run {
+                    // Clear any cached data from previous user before setting new auth state
+                    GiftStateManager.shared.clearState()
+
                     self.isAuthenticated = true
                     self.currentUser = User(id: response.user.id ?? 0, name: response.user.name, email: response.user.email)
                     self.isLoading = false
                     print("✅ Login successful: \(response.user.name)")
+
+                    // Refresh gift data for the new user
+                    Task {
+                        await GiftStateManager.shared.refreshAll()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -204,6 +220,8 @@ class SimpleAuthManager: ObservableObject {
                     self.isAuthenticated = false
                     self.currentUser = nil
                     self.errorMessage = nil
+                    // Clear cached gift data to prevent data leakage between users
+                    GiftStateManager.shared.clearState()
                     print("✅ Logout successful")
                 }
             } catch {
@@ -211,6 +229,8 @@ class SimpleAuthManager: ObservableObject {
                     self.isAuthenticated = false
                     self.currentUser = nil
                     self.errorMessage = nil
+                    // Clear cached gift data even on error to prevent data leakage
+                    GiftStateManager.shared.clearState()
                     print("⚠️ Logout error (clearing anyway): \(error)")
                 }
             }
