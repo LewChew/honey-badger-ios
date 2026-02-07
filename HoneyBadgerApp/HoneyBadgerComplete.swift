@@ -101,6 +101,125 @@ extension View {
     }
 }
 
+// MARK: - Checkbox Toggle Style
+
+struct CheckboxToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+                .foregroundColor(configuration.isOn ? HBTheme.primaryYellow : .gray)
+                .font(.system(size: 20))
+                .onTapGesture { configuration.isOn.toggle() }
+            configuration.label
+        }
+    }
+}
+
+// MARK: - Disclosure Item Helper
+
+struct DisclosureItem: View {
+    let text: String
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.green)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundColor(.gray)
+        }
+    }
+}
+
+// MARK: - SMS Disclosure Detail Sheet
+
+struct SMSDisclosureDetailSheet: View {
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("SMS Messaging Terms")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+
+                        VStack(alignment: .leading, spacing: 16) {
+                            smsTermSection(
+                                title: "Opt-In Process",
+                                content: "Gift recipients receive a single opt-in SMS when you send them a Honey Badger. They must reply YES to receive challenge updates and reminders."
+                            )
+
+                            smsTermSection(
+                                title: "Message Frequency",
+                                content: "During active challenges, recipients may receive 1-3 messages per day including reminders and motivational messages."
+                            )
+
+                            smsTermSection(
+                                title: "Message & Data Rates",
+                                content: "Standard message and data rates may apply. Message frequency varies based on challenge activity."
+                            )
+
+                            smsTermSection(
+                                title: "Opting Out",
+                                content: "Recipients can reply STOP at any time to unsubscribe from all Honey Badger messages. Reply HELP for assistance."
+                            )
+
+                            smsTermSection(
+                                title: "Privacy",
+                                content: "Phone numbers are only used for Honey Badger challenge notifications. We never share numbers with third parties for marketing."
+                            )
+                        }
+
+                        VStack(spacing: 12) {
+                            Link(destination: URL(string: "https://honeybadger.app/sms-terms")!) {
+                                Text("View Full SMS Terms")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                            }
+
+                            Link(destination: URL(string: "https://honeybadger.app/privacy")!) {
+                                Text("Privacy Policy")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                            }
+                        }
+                        .padding(.top, 20)
+                    }
+                    .padding(20)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(HBTheme.primaryYellow)
+                }
+            }
+        }
+    }
+
+    private func smsTermSection(title: String, content: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(HBTheme.primaryYellow)
+            Text(content)
+                .font(.system(size: 14))
+                .foregroundColor(.gray)
+                .lineSpacing(4)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(HBTheme.cardBg)
+        .cornerRadius(12)
+    }
+}
+
 // MARK: - Models
 
 struct User: Codable {
@@ -579,6 +698,7 @@ struct SignupScreen: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
+    @State private var agreedToTerms = false
     @State private var showLogin = false
 
     var body: some View {
@@ -612,7 +732,7 @@ struct SignupScreen: View {
                     } else if currentStep == 2 {
                         Step2View(name: $name)
                     } else {
-                        Step3View(password: $password, confirmPassword: $confirmPassword)
+                        Step3View(password: $password, confirmPassword: $confirmPassword, agreedToTerms: $agreedToTerms)
                     }
 
                     // Error message
@@ -682,7 +802,7 @@ struct SignupScreen: View {
         switch currentStep {
         case 1: return !email.isEmpty && email.contains("@")
         case 2: return name.count >= 2
-        case 3: return !password.isEmpty && password.count >= 6 && password == confirmPassword
+        case 3: return !password.isEmpty && password.count >= 6 && password == confirmPassword && agreedToTerms
         default: return false
         }
     }
@@ -772,6 +892,7 @@ struct Step2View: View {
 struct Step3View: View {
     @Binding var password: String
     @Binding var confirmPassword: String
+    @Binding var agreedToTerms: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -798,6 +919,33 @@ struct Step3View: View {
                     .font(.system(size: 12))
                     .foregroundColor(.red)
             }
+
+            // Terms and Privacy consent
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $agreedToTerms) {
+                    HStack(spacing: 4) {
+                        Text("I agree to the")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                        Link("Terms of Service", destination: URL(string: "https://honeybadger.app/terms")!)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(HBTheme.primaryYellow)
+                        Text("and")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                        Link("Privacy Policy", destination: URL(string: "https://honeybadger.app/privacy")!)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(HBTheme.primaryYellow)
+                    }
+                }
+                .toggleStyle(CheckboxToggleStyle())
+
+                Text("Gift recipients will receive SMS messages from Honey Badger.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 16)
         }
     }
 }
@@ -813,6 +961,7 @@ struct DashboardScreen: View {
     @State private var showAbout = false
     @State private var showAccountEdit = false
     @State private var showBadgersScreen = false
+    @State private var badgersScreenInitialTab = 0
     @State private var showPendingApprovals = false
     @State private var contacts: [Contact] = []
     @State private var selectedGift: Gift? = nil
@@ -834,47 +983,21 @@ struct DashboardScreen: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Dashboard Header
+                        // Header
                         HStack {
-                            Text("Dashboard")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(.white)
-
                             Spacer()
-
-                            // Pending Approvals Button with Badge
-                            Button(action: { showPendingApprovals = true }) {
-                                ZStack(alignment: .topTrailing) {
-                                    Image(systemName: "photo.badge.checkmark")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(HBTheme.primaryYellow)
-
-                                    if giftStateManager.pendingApprovalsCount > 0 {
-                                        Text("\(giftStateManager.pendingApprovalsCount)")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.black)
-                                            .frame(minWidth: 16, minHeight: 16)
-                                            .background(Color.red)
-                                            .clipShape(Circle())
-                                            .offset(x: 6, y: -6)
-                                    }
-                                }
-                            }
 
                             Button(action: { showAccountEdit = true }) {
                                 Image(systemName: "person.circle")
                                     .font(.system(size: 22))
                                     .foregroundColor(HBTheme.primaryYellow)
                             }
-
-                            Button(action: { auth.logout() }) {
-                                Image(systemName: "arrow.right.square")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(HBTheme.primaryYellow)
-                            }
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
+
+                        // Dashboard Summary Stats
+                        dashboardSummary
 
                         // Send Badger Button
                         Button(action: { showSendBadger = true }) {
@@ -895,13 +1018,16 @@ struct DashboardScreen: View {
                         }
                         .padding(.horizontal, 20)
 
-                        // Network Section
+                        // Badgers Section
+                        badgersSection
+
+                        // Your People Section
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
                                 HStack(spacing: 8) {
                                     Image(systemName: "person.2.fill")
                                         .foregroundColor(HBTheme.primaryYellow)
-                                    Text("People to Gift")
+                                    Text("Your People")
                                         .font(.system(size: 18, weight: .semibold))
                                         .foregroundColor(.white)
                                 }
@@ -916,26 +1042,24 @@ struct DashboardScreen: View {
                             }
 
                             if contacts.isEmpty {
-                                VStack(spacing: 16) {
-                                    // Minimalist Icon
+                                HStack(spacing: 12) {
                                     ZStack {
                                         Circle()
                                             .fill(HBTheme.primaryYellow.opacity(0.15))
-                                            .frame(width: 70, height: 70)
+                                            .frame(width: 44, height: 44)
 
-                                        Image(systemName: "person.2.fill")
-                                            .font(.system(size: 28))
+                                        Image(systemName: "person.3.fill")
+                                            .font(.system(size: 18))
                                             .foregroundColor(HBTheme.primaryYellow)
                                     }
 
-                                    Text("Add contacts to start sending Honey Badgers!")
-                                        .font(.system(size: 14))
+                                    Text("Add Your People")
+                                        .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.gray)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal, 10)
+
+                                    Spacer()
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
+                                .padding(.vertical, 8)
                             } else {
                                 VStack(spacing: 12) {
                                     ForEach(contacts) { contact in
@@ -995,9 +1119,6 @@ struct DashboardScreen: View {
                         )
                         .padding(.horizontal, 20)
 
-                        // Badgers Section
-                        badgersSection
-
                         // About Button
                         Button(action: { showAbout = true }) {
                             Text("What's Honey Badger?")
@@ -1033,7 +1154,7 @@ struct DashboardScreen: View {
                     .presentationBackground(HBTheme.darkBg)
             }
             .sheet(isPresented: $showBadgersScreen) {
-                BadgersInTheWildScreen(isPresented: $showBadgersScreen)
+                BadgersInTheWildScreen(isPresented: $showBadgersScreen, initialTab: badgersScreenInitialTab)
             }
             .sheet(isPresented: $showPendingApprovals) {
                 PendingApprovalsScreen(isPresented: $showPendingApprovals)
@@ -1048,16 +1169,91 @@ struct DashboardScreen: View {
         }
     }
 
+    // MARK: - Dashboard Summary
+
+    private var dashboardSummary: some View {
+        HStack(spacing: 12) {
+            // Sent
+            summaryCard(
+                count: sentGifts.filter { $0.status != "completed" }.count,
+                label: "Sent",
+                icon: "paperplane.fill",
+                color: HBTheme.primaryYellow,
+                action: {
+                    badgersScreenInitialTab = 0
+                    showBadgersScreen = true
+                }
+            )
+
+            // Received
+            summaryCard(
+                count: giftStateManager.receivedGifts.filter { $0.status != "completed" }.count,
+                label: "Received",
+                icon: "gift.fill",
+                color: Color.green,
+                action: {
+                    badgersScreenInitialTab = 1
+                    showBadgersScreen = true
+                }
+            )
+
+            // Approvals
+            summaryCard(
+                count: giftStateManager.pendingApprovalsCount,
+                label: "Approvals",
+                icon: "checkmark.circle.fill",
+                color: Color.orange,
+                action: { showPendingApprovals = true }
+            )
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func summaryCard(count: Int, label: String, icon: String, color: Color, action: (() -> Void)? = nil) -> some View {
+        Button(action: { action?() }) {
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .foregroundColor(color)
+
+                    Text("\(count)")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(HBTheme.cardBg)
+            .cornerRadius(12)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(action == nil)
+    }
+
+    // Combined count for determining if we should show "See All"
+    private var totalBadgersCount: Int {
+        giftStateManager.pendingApprovals.count + sentGifts.count
+    }
+
+    private var hasBadgersContent: Bool {
+        !giftStateManager.pendingApprovals.isEmpty || !sentGifts.isEmpty
+    }
+
     private var badgersSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Badgers In the Wild")
+                Text("Active Badgers")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
 
                 Spacer()
 
-                if !sentGifts.isEmpty {
+                if totalBadgersCount > 5 {
                     Button(action: { showBadgersScreen = true }) {
                         HStack(spacing: 4) {
                             Text("See All")
@@ -1070,7 +1266,7 @@ struct DashboardScreen: View {
                 }
             }
 
-            if loadingGifts {
+            if loadingGifts && giftStateManager.isLoadingApprovals {
                 VStack(spacing: 16) {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: HBTheme.primaryYellow))
@@ -1081,7 +1277,7 @@ struct DashboardScreen: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
-            } else if sentGifts.isEmpty {
+            } else if !hasBadgersContent {
                 badgersEmptyState
             } else {
                 badgersList
@@ -1136,11 +1332,129 @@ struct DashboardScreen: View {
     }
 
     private var badgersList: some View {
-        VStack(spacing: 12) {
-            ForEach(sentGifts, id: \.id) { gift in
-                badgerRow(gift: gift)
+        let pendingApprovals = giftStateManager.pendingApprovals
+        let maxItems = 5
+        let pendingCount = min(pendingApprovals.count, maxItems)
+        let remainingSlots = max(0, maxItems - pendingCount)
+        let giftsToShow = Array(sentGifts.prefix(remainingSlots))
+
+        return VStack(spacing: 8) {
+            // Pending approvals first
+            ForEach(Array(pendingApprovals.prefix(pendingCount))) { approval in
+                pendingApprovalRow(approval: approval)
+            }
+
+            // Then sent gifts
+            ForEach(giftsToShow, id: \.id) { gift in
+                compactBadgerRow(gift: gift)
             }
         }
+    }
+
+    private func pendingApprovalRow(approval: PendingApproval) -> some View {
+        Button(action: { showPendingApprovals = true }) {
+            HStack(spacing: 10) {
+                // Pending indicator icon
+                ZStack {
+                    Circle()
+                        .fill(Color.orange.opacity(0.2))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: "photo.badge.checkmark")
+                        .font(.system(size: 16))
+                        .foregroundColor(.orange)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(approval.giftType)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        // Awaiting approval badge
+                        Text("Awaiting Approval")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange)
+                            .cornerRadius(4)
+                    }
+
+                    if let recipientName = approval.recipientName, !recipientName.isEmpty {
+                        Text("To: \(recipientName)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+            }
+            .padding(10)
+            .background(HBTheme.cardBg.opacity(0.5))
+            .cornerRadius(10)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func compactBadgerRow(gift: Gift) -> some View {
+        Button(action: {
+            selectedGift = gift
+            showGiftDetail = true
+        }) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(HBTheme.primaryYellow.opacity(0.15))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: gift.status == "completed" ? "checkmark.seal.fill" : "pawprint.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(HBTheme.primaryYellow)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(gift.giftType)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    if let recipientName = gift.recipientName, !recipientName.isEmpty {
+                        Text("To: \(recipientName)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    } else if let recipientEmail = gift.recipientEmail, !recipientEmail.isEmpty {
+                        Text("To: \(recipientEmail)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    } else if let recipientPhone = gift.recipientPhone, !recipientPhone.isEmpty {
+                        Text("To: \(recipientPhone)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                // Status indicator
+                Circle()
+                    .fill(gift.status == "completed" ? Color.green : Color.orange)
+                    .frame(width: 10, height: 10)
+            }
+            .padding(10)
+            .background(HBTheme.cardBg.opacity(0.5))
+            .cornerRadius(10)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func badgerRow(gift: Gift) -> some View {
@@ -1363,10 +1677,6 @@ struct AccountEditScreen: View {
                         }
                         .padding(.top, 20)
 
-                        Text("Edit Profile")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-
                         // Profile Information Section
                         VStack(alignment: .leading, spacing: 20) {
                             Text("Profile Information")
@@ -1488,6 +1798,28 @@ struct AccountEditScreen: View {
                                 .foregroundColor(.green)
                                 .padding(.horizontal, 20)
                         }
+
+                        // Logout Button
+                        Button(action: {
+                            isPresented = false
+                            auth.logout()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.right.square")
+                                    .font(.system(size: 18))
+                                Text("Log Out")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.red.opacity(0.5), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
 
                         Spacer(minLength: 40)
                     }
@@ -1936,6 +2268,7 @@ struct RejectSubmissionSheet: View {
 
 struct BadgersInTheWildScreen: View {
     @Binding var isPresented: Bool
+    var initialTab: Int = 0
     @StateObject private var giftStateManager = GiftStateManager.shared
     @State private var selectedTab = 0 // 0 = Sent, 1 = Received
     @State private var selectedGift: Gift? = nil
@@ -2007,7 +2340,7 @@ struct BadgersInTheWildScreen: View {
                     }
                 }
             }
-            .navigationTitle("Badgers in the Wild")
+            .navigationTitle("Active Badgers")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -2033,6 +2366,7 @@ struct BadgersInTheWildScreen: View {
                     .presentationBackground(HBTheme.darkBg)
             }
             .onAppear {
+                selectedTab = initialTab
                 Task {
                     await giftStateManager.refreshAll()
                 }
@@ -2506,6 +2840,7 @@ struct SendBadgerScreen: View {
     @Binding var isPresented: Bool
     @State private var showSplash = true
     @State private var showMainContent = false
+    @State private var showTransitionFlash = false
     @State private var currentStep = 1
     @State private var sendingBadger = false
     @State private var showError = false
@@ -2522,7 +2857,14 @@ struct SendBadgerScreen: View {
     @State private var giftType = "Photo or Video"
     @State private var giftAmount = "25"
     @State private var message = ""
+    @State private var showGiftCardScreen = false
+    @State private var showPhotoUpload = false
+    @State private var selectedImageData: Data? = nil
+    @State private var giftCardConfigured = false
+    @State private var currentSplashImage = "HoneyBadger_toon"
+    @State private var smsConsentAcknowledged = false
 
+    let badgerImages = ["HoneyBadger_toon", "CyberBadger", "honey-badger-ninja"]
     let unlockCategories = ["Simple Unlock", "Motivating Unlock"]
     let occasions = ["Birthday", "Congratulations", "Thank You", "Just Because", "Holiday", "Get Well"]
     let giftTypes = ["Photo or Video", "Promise", "Gift Card / Money"]
@@ -2532,11 +2874,11 @@ struct SendBadgerScreen: View {
     var body: some View {
         ZStack {
             if showSplash {
-                // Combined Splash Screen
+                // Combined Splash Screen with rotating badger images
                 ZStack {
                     HBTheme.darkBg.ignoresSafeArea()
                     VStack(spacing: 40) {
-                        Image("HoneyBadger_toon")
+                        Image(currentSplashImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(height: 250)
@@ -2544,6 +2886,8 @@ struct SendBadgerScreen: View {
                     }
                 }
                 .onAppear {
+                    // Pick a random badger image
+                    currentSplashImage = badgerImages.randomElement() ?? "HoneyBadger_toon"
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         withAnimation {
                             showSplash = false
@@ -2553,6 +2897,20 @@ struct SendBadgerScreen: View {
                 }
             } else if showMainContent {
                 mainContentView
+            }
+
+            // Flash transition overlay
+            if showTransitionFlash {
+                ZStack {
+                    HBTheme.darkBg.ignoresSafeArea()
+                    Image(currentSplashImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 180)
+                        .padding(.horizontal, 60)
+                }
+                .transition(.opacity)
+                .zIndex(100)
             }
         }
     }
@@ -2594,7 +2952,9 @@ struct SendBadgerScreen: View {
                                 WhoView(
                                     recipientName: $recipientName,
                                     recipientEmail: $recipientEmail,
-                                    recipientPhone: $recipientPhone
+                                    recipientPhone: $recipientPhone,
+                                    smsConsentAcknowledged: $smsConsentAcknowledged,
+                                    currentUserEmail: auth.currentUser?.email ?? ""
                                 )
                             } else if currentStep == 2 {
                                 ChallengeSelectionView(
@@ -2617,6 +2977,10 @@ struct SendBadgerScreen: View {
                                     giftType: $giftType,
                                     giftAmount: $giftAmount,
                                     message: $message,
+                                    showGiftCardScreen: $showGiftCardScreen,
+                                    showPhotoUpload: $showPhotoUpload,
+                                    selectedImageData: $selectedImageData,
+                                    giftCardConfigured: $giftCardConfigured,
                                     giftTypes: giftTypes,
                                     amounts: amounts
                                 )
@@ -2674,16 +3038,40 @@ struct SendBadgerScreen: View {
             } message: {
                 Text(errorMessage)
             }
+            .sheet(isPresented: $showGiftCardScreen) {
+                GiftCardConfigScreen(
+                    isPresented: $showGiftCardScreen,
+                    giftAmount: $giftAmount,
+                    giftCardConfigured: $giftCardConfigured,
+                    amounts: amounts
+                )
+            }
+            .sheet(isPresented: $showPhotoUpload) {
+                PhotoUploadScreen(
+                    isPresented: $showPhotoUpload,
+                    selectedImageData: $selectedImageData
+                )
+            }
         }
+    }
+
+    // Check if recipient is the same as current user
+    private var isSendingToSelf: Bool {
+        guard let currentUser = auth.currentUser else { return false }
+        let emailMatch = !recipientEmail.isEmpty && recipientEmail.lowercased() == currentUser.email.lowercased()
+        return emailMatch
     }
 
     private var canProceed: Bool {
         switch currentStep {
         case 1:
-            let nameValid = recipientName.count >= 3
+            // Prevent sending to self
+            if isSendingToSelf { return false }
             let emailValid = !recipientEmail.isEmpty && recipientEmail.contains("@") && recipientEmail.contains(".")
             let phoneValid = !recipientPhone.isEmpty && recipientPhone.count >= 10
-            return nameValid && (emailValid || phoneValid)
+            // Require SMS consent acknowledgment if phone is provided
+            if phoneValid && !smsConsentAcknowledged { return false }
+            return emailValid || phoneValid
         case 2:
             if unlockCategory == "Simple Unlock" {
                 return !challengeType.isEmpty
@@ -2698,13 +3086,33 @@ struct SendBadgerScreen: View {
 
     private func previousStep() {
         if currentStep > 1 {
-            currentStep -= 1
+            // Pick a new random badger for the flash
+            currentSplashImage = badgerImages.randomElement() ?? "HoneyBadger_toon"
+            withAnimation(.easeIn(duration: 0.15)) {
+                showTransitionFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                currentStep -= 1
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showTransitionFlash = false
+                }
+            }
         }
     }
 
     private func nextStepOrSend() {
         if currentStep < 4 {
-            currentStep += 1
+            // Pick a new random badger for the flash
+            currentSplashImage = badgerImages.randomElement() ?? "HoneyBadger_toon"
+            withAnimation(.easeIn(duration: 0.15)) {
+                showTransitionFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                currentStep += 1
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showTransitionFlash = false
+                }
+            }
         } else {
             sendBadger()
         }
@@ -2717,7 +3125,10 @@ struct SendBadgerScreen: View {
             }
 
             do {
-                // Prepare gift details
+                // Get sender name for email
+                let senderName = auth.currentUser?.name ?? "A friend"
+
+                // Prepare gift details with email template info
                 let giftDetails: [String: Any] = [
                     "recipientName": recipientName,
                     "recipientEmail": recipientEmail,
@@ -2730,7 +3141,18 @@ struct SendBadgerScreen: View {
                     "occasion": occasion,
                     "giftType": giftType,
                     "giftAmount": giftAmount,
-                    "message": message
+                    "message": message,
+                    "senderName": senderName,
+                    // SMS consent acknowledgment
+                    "smsConsentAcknowledged": smsConsentAcknowledged,
+                    "smsConsentTimestamp": ISO8601DateFormatter().string(from: Date()),
+                    // Email configuration
+                    "emailConfig": [
+                        "appSignupURL": EmailTemplates.appSignupURL,
+                        "appDownloadURL": EmailTemplates.appDownloadURL,
+                        "honeyBadgerLogoURL": EmailTemplates.honeyBadgerLogoURL,
+                        "honeyBadgerMascotURL": EmailTemplates.honeyBadgerMascotURL
+                    ]
                 ]
 
                 print("📤 Sending Honey Badger:")
@@ -3061,43 +3483,66 @@ struct ChallengeConfigView: View {
     @Binding var occasion: String
     let occasions: [String]
 
+    // Sample challenges for ticker - no emojis
+    let sampleChallenges = [
+        "Take a birthday selfie with your cake",
+        "Show us your happy dance",
+        "Send a thank you video message",
+        "Capture your morning workout",
+        "Share your favorite holiday moment",
+        "Record yourself opening the gift",
+        "Take a pic at your favorite spot",
+        "Show us your biggest smile",
+        "Capture a sunset selfie",
+        "Send a get well soon message"
+    ]
+
+    // Digital green color for stock ticker
+    private let digitalGreen = Color(red: 0.0, green: 0.9, blue: 0.3)
+
+    @State private var tickerOffset: CGFloat = 0
+
     var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 10) {
-                Text("Setup the Challenge")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundColor(.white)
+        VStack(spacing: 16) {
+            Text("Setup the Challenge")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.top, 10)
 
-                Text(instructionText)
-                    .font(.system(size: 16))
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-            }
+            VStack(spacing: 16) {
+                // Stock Ticker Style Inspiration
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("IDEAS FOR INSPIRATION")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.gray)
+                        .padding(.horizontal, 20)
 
-            VStack(spacing: 20) {
-                // Occasion Selection
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("What's the occasion?")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.black)
+                            .frame(height: 36)
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(occasions, id: \.self) { item in
-                            Button(action: { occasion = item }) {
-                                Text(item)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(occasion == item ? .black : HBTheme.primaryYellow)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(occasion == item ? HBTheme.primaryYellow : Color.clear)
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(HBTheme.primaryYellow, lineWidth: 1)
-                                    )
+                        GeometryReader { geo in
+                            let tickerText = sampleChallenges.joined(separator: "  ///  ")
+                            HStack(spacing: 0) {
+                                Text(tickerText + "  ///  " + tickerText)
+                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .foregroundColor(digitalGreen)
+                                    .fixedSize()
+                            }
+                            .offset(x: tickerOffset)
+                            .onAppear {
+                                startTickerAnimation(width: geo.size.width)
                             }
                         }
+                        .frame(height: 36)
+                        .clipped()
+                    }
+                    .onTapGesture {
+                        // Cycle through challenges on tap
+                        let currentIndex = sampleChallenges.firstIndex(of: challengePrompt) ?? -1
+                        let nextIndex = (currentIndex + 1) % sampleChallenges.count
+                        challengePrompt = sampleChallenges[nextIndex]
                     }
                 }
 
@@ -3192,6 +3637,20 @@ struct ChallengeConfigView: View {
             return "The Honey Badger will send daily reminders and encouragement throughout the challenge"
         }
     }
+
+    private func startTickerAnimation(width: CGFloat) {
+        let tickerText = sampleChallenges.joined(separator: "  ///  ")
+        // Estimate text width (roughly 8 points per character for monospaced)
+        let textWidth = CGFloat(tickerText.count) * 8
+
+        // Start from right edge
+        tickerOffset = 0
+
+        // Animate continuously
+        withAnimation(.linear(duration: 25).repeatForever(autoreverses: false)) {
+            tickerOffset = -textWidth
+        }
+    }
 }
 
 // MARK: - Who View
@@ -3200,26 +3659,28 @@ struct WhoView: View {
     @Binding var recipientName: String
     @Binding var recipientEmail: String
     @Binding var recipientPhone: String
+    @Binding var smsConsentAcknowledged: Bool
+    var currentUserEmail: String = ""
     @State private var showContactPicker = false
+    @State private var showSMSDisclosure = false
 
     var isValidInput: Bool {
-        let nameValid = recipientName.count >= 3
         let emailValid = !recipientEmail.isEmpty && recipientEmail.contains("@") && recipientEmail.contains(".")
         let phoneValid = !recipientPhone.isEmpty && recipientPhone.count >= 10
 
-        return nameValid && (emailValid || phoneValid)
+        return emailValid || phoneValid
+    }
+
+    var isSendingToSelf: Bool {
+        !recipientEmail.isEmpty && recipientEmail.lowercased() == currentUserEmail.lowercased()
+    }
+
+    var hasValidPhone: Bool {
+        recipientPhone.count >= 10
     }
 
     var body: some View {
         VStack(spacing: 16) {
-            // Future Envelope Image
-            Image("HB_Future_Envelope")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 180)
-                .padding(.horizontal, 30)
-                .padding(.top, 10)
-
             VStack(spacing: 6) {
                 Text("Always Be Gifting")
                     .font(.system(size: 26, weight: .bold))
@@ -3229,30 +3690,9 @@ struct WhoView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.white)
             }
+            .padding(.top, 20)
 
             VStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Send To")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                    ZStack(alignment: .leading) {
-                        if recipientName.isEmpty {
-                            Text("Name")
-                                .font(.system(size: 16))
-                                .foregroundColor(.gray)
-                                .padding(.leading, 14)
-                        }
-                        TextField("", text: $recipientName)
-                            .font(.system(size: 16))
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 14)
-                            .foregroundColor(.white)
-                            .textInputAutocapitalization(.words)
-                    }
-                    .background(HBTheme.cardBg)
-                    .cornerRadius(10)
-                }
-
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Email")
                         .font(.system(size: 16, weight: .bold))
@@ -3268,18 +3708,32 @@ struct WhoView: View {
                             .font(.system(size: 16))
                             .padding(.vertical, 14)
                             .padding(.horizontal, 14)
-                            .foregroundColor(.white)
+                            .foregroundColor(isSendingToSelf ? .red : .white)
                             .textInputAutocapitalization(.never)
                             .keyboardType(.emailAddress)
                             .autocorrectionDisabled()
                     }
                     .background(HBTheme.cardBg)
                     .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isSendingToSelf ? Color.red : Color.clear, lineWidth: 2)
+                    )
+
+                    if isSendingToSelf {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 12))
+                            Text("You can't send a Honey Badger to yourself!")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(.red)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Phone #")
-                        .font(.system(size: 15, weight: .bold))
+                    Text("SMS Phone #")
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                     ZStack(alignment: .leading) {
                         if recipientPhone.isEmpty {
@@ -3299,6 +3753,45 @@ struct WhoView: View {
                     .cornerRadius(10)
                 }
 
+                // SMS Disclosure - appears when phone number is valid
+                if hasValidPhone {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("SMS Messaging Disclosure")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(HBTheme.primaryYellow)
+                            Spacer()
+                            Button(action: { showSMSDisclosure = true }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            DisclosureItem(text: "Recipient receives initial opt-in SMS")
+                            DisclosureItem(text: "Only after they reply YES will they get reminders")
+                            DisclosureItem(text: "Message frequency: 1-3 per day during challenges")
+                            DisclosureItem(text: "Msg&Data rates may apply")
+                            DisclosureItem(text: "Recipients can reply STOP anytime")
+                        }
+
+                        Toggle(isOn: $smsConsentAcknowledged) {
+                            Text("I acknowledge the recipient will be asked to consent")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white)
+                        }
+                        .toggleStyle(CheckboxToggleStyle())
+                    }
+                    .padding(16)
+                    .background(HBTheme.cardBg.opacity(0.8))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(HBTheme.primaryYellow.opacity(0.3), lineWidth: 1)
+                    )
+                }
+
                 // Add Contact Button
                 Button(action: { showContactPicker = true }) {
                     Text("Select from Contacts")
@@ -3311,10 +3804,25 @@ struct WhoView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+
+            Spacer()
+
+            // Image at bottom right
+            HStack {
+                Spacer()
+                Image("HB_Future_Envelope")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 120)
+                    .padding(.trailing, 20)
+            }
+            .padding(.bottom, 10)
         }
         .sheet(isPresented: $showContactPicker) {
             ContactPicker(recipientName: $recipientName, recipientEmail: $recipientEmail, recipientPhone: $recipientPhone)
+        }
+        .sheet(isPresented: $showSMSDisclosure) {
+            SMSDisclosureDetailSheet()
         }
     }
 }
@@ -3325,95 +3833,394 @@ struct GiftDetailsView: View {
     @Binding var giftType: String
     @Binding var giftAmount: String
     @Binding var message: String
+    @Binding var showGiftCardScreen: Bool
+    @Binding var showPhotoUpload: Bool
+    @Binding var selectedImageData: Data?
+    @Binding var giftCardConfigured: Bool
     let giftTypes: [String]
     let amounts: [String]
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
             Text("Choose a gift")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 26, weight: .bold))
                 .foregroundColor(.white)
+                .padding(.top, 8)
 
-            Text("Pick the perfect reward")
-                .font(.system(size: 16))
-                .foregroundColor(.gray)
-
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Gift Type")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: 10) {
                         ForEach(giftTypes, id: \.self) { type in
                             Button(action: { giftType = type }) {
-                                Text(type)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(giftType == type ? .black : HBTheme.primaryYellow)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(giftType == type ? HBTheme.primaryYellow : Color.clear)
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(HBTheme.primaryYellow, lineWidth: 2)
-                                    )
-                            }
-                        }
-                    }
-                }
-
-                if giftType == "Gift Card / Money" {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Amount ($)")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-
-                        HStack(spacing: 12) {
-                            ForEach(amounts, id: \.self) { amount in
-                                Button(action: { giftAmount = amount }) {
-                                    Text("$\(amount)")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(giftAmount == amount ? .black : HBTheme.primaryYellow)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(giftAmount == amount ? HBTheme.primaryYellow : Color.clear)
-                                        .cornerRadius(12)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(HBTheme.primaryYellow, lineWidth: 1)
-                                        )
+                                HStack {
+                                    Text(type)
+                                        .font(.system(size: 15, weight: .medium))
+                                    Spacer()
+                                    if type == "Photo or Video" && selectedImageData != nil {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                    } else if type == "Gift Card / Money" && giftCardConfigured {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                    }
                                 }
+                                .foregroundColor(giftType == type ? .black : HBTheme.primaryYellow)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 14)
+                                .background(giftType == type ? HBTheme.primaryYellow : Color.clear)
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(HBTheme.primaryYellow, lineWidth: 2)
+                                )
                             }
                         }
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                // Photo/Video Upload Section
+                if giftType == "Photo or Video" {
+                    Button(action: { showPhotoUpload = true }) {
+                        HStack(spacing: 12) {
+                            if selectedImageData != nil {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.green)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Media uploaded successfully")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Tap to change")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.gray)
+                                }
+                            } else {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                                Text("Tap to upload photo or video")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                        .padding(14)
+                        .background(HBTheme.cardBg)
+                        .cornerRadius(10)
+                    }
+                }
+
+                // Gift Card Section
+                if giftType == "Gift Card / Money" {
+                    Button(action: { showGiftCardScreen = true }) {
+                        HStack(spacing: 12) {
+                            if giftCardConfigured {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.green)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("$\(giftAmount) Gift Card")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("Tap to change")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.gray)
+                                }
+                            } else {
+                                Image(systemName: "creditcard")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                                Text("Tap to configure gift card")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                        .padding(14)
+                        .background(HBTheme.cardBg)
+                        .cornerRadius(10)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Personal Message")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(.white)
                     ZStack(alignment: .topLeading) {
                         if message.isEmpty {
                             Text("Add a personal touch...")
-                                .font(.system(size: 16))
+                                .font(.system(size: 15))
                                 .foregroundColor(.gray)
-                                .padding(.top, 14)
-                                .padding(.leading, 14)
+                                .padding(.top, 12)
+                                .padding(.leading, 12)
                         }
                         TextEditor(text: $message)
-                            .font(.system(size: 16))
+                            .font(.system(size: 15))
                             .foregroundColor(.white)
                             .scrollContentBackground(.hidden)
                             .background(Color.clear)
-                            .frame(minHeight: 100)
-                            .padding(10)
+                            .frame(minHeight: 80)
+                            .padding(8)
                     }
                     .background(HBTheme.cardBg)
                     .cornerRadius(10)
                 }
             }
             .padding(.horizontal, 20)
+        }
+    }
+}
+
+// MARK: - Gift Card Configuration Screen
+
+struct GiftCardConfigScreen: View {
+    @Binding var isPresented: Bool
+    @Binding var giftAmount: String
+    @Binding var giftCardConfigured: Bool
+    let amounts: [String]
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                VStack(spacing: 32) {
+                    // Header
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(HBTheme.primaryYellow.opacity(0.2))
+                                .frame(width: 80, height: 80)
+
+                            Image(systemName: "creditcard.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(HBTheme.primaryYellow)
+                        }
+
+                        Text("Gift Card Amount")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text("Choose how much to gift")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 40)
+
+                    // Amount Selection
+                    VStack(spacing: 16) {
+                        ForEach(amounts, id: \.self) { amount in
+                            Button(action: { giftAmount = amount }) {
+                                HStack {
+                                    Text("$\(amount)")
+                                        .font(.system(size: 24, weight: .bold))
+                                    Spacer()
+                                    if giftAmount == amount {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 24))
+                                    }
+                                }
+                                .foregroundColor(giftAmount == amount ? .black : HBTheme.primaryYellow)
+                                .padding(.vertical, 20)
+                                .padding(.horizontal, 24)
+                                .background(giftAmount == amount ? HBTheme.primaryYellow : Color.clear)
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(HBTheme.primaryYellow, lineWidth: 2)
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    Spacer()
+
+                    // Confirm Button
+                    Button(action: {
+                        giftCardConfigured = true
+                        isPresented = false
+                    }) {
+                        Text("CONFIRM AMOUNT")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(HBTheme.buttonGradient)
+                            .cornerRadius(30)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 30)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 24))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Photo Upload Screen
+
+struct PhotoUploadScreen: View {
+    @Binding var isPresented: Bool
+    @Binding var selectedImageData: Data?
+    @State private var showImagePicker = false
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                VStack(spacing: 32) {
+                    // Header
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(HBTheme.primaryYellow.opacity(0.2))
+                                .frame(width: 80, height: 80)
+
+                            Image(systemName: "photo.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(HBTheme.primaryYellow)
+                        }
+
+                        Text("Upload Gift Media")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text("Add a photo or video as your gift")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 40)
+
+                    // Preview or Upload Button
+                    if let imageData = selectedImageData,
+                       let uiImage = UIImage(data: imageData) {
+                        VStack(spacing: 16) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: 250)
+                                .cornerRadius(16)
+                                .padding(.horizontal, 20)
+
+                            Button(action: { showImagePicker = true }) {
+                                Text("Change Photo")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(HBTheme.primaryYellow)
+                            }
+                        }
+                    } else {
+                        Button(action: { showImagePicker = true }) {
+                            VStack(spacing: 16) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                                        .foregroundColor(HBTheme.primaryYellow.opacity(0.5))
+                                        .frame(height: 200)
+
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.system(size: 48))
+                                            .foregroundColor(HBTheme.primaryYellow)
+
+                                        Text("Tap to select photo or video")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Done Button
+                    if selectedImageData != nil {
+                        Button(action: { isPresented = false }) {
+                            Text("DONE")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                                .background(HBTheme.buttonGradient)
+                                .cornerRadius(30)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 24))
+                    }
+                }
+            }
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(imageData: $selectedImageData)
+            }
+        }
+    }
+}
+
+// MARK: - Image Picker
+
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var imageData: Data?
+    @Environment(\.presentationMode) var presentationMode
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = .photoLibrary
+        picker.mediaTypes = ["public.image", "public.movie"]
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: ImagePicker
+
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                parent.imageData = image.jpegData(compressionQuality: 0.8)
+            }
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.presentationMode.wrappedValue.dismiss()
         }
     }
 }

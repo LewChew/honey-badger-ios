@@ -9,10 +9,8 @@
 import Foundation
 
 struct HoneyBadgerAPIConfig {
-    // Development: Local backend
-    // Production: Update with your production API URL
-    static let baseURL = "http://localhost:3000"
-    // static let baseURL = "https://api.honeybadger.com" // Uncomment for production
+    // Production backend
+    static let baseURL = "https://api.badgerbot.net"
 
     struct Endpoints {
         static let login = "/api/login"
@@ -59,5 +57,21 @@ struct HoneyBadgerAPIConfig {
         static func recipientGifts(phone: String) -> String {
             return "/api/recipients/\(phone)/gifts"
         }
+
+        // SMS Consent Endpoints
+        static let smsConsentStatus = "/api/sms/consent-status"
+
+        static func checkConsentStatus(phone: String) -> String {
+            return "/api/sms/consent/\(phone)"
+        }
+
+        static let smsWebhookIncoming = "/api/sms/webhook/incoming"
+    }
+
+    // Legal Pages
+    struct LegalURLs {
+        static let termsOfService = "https://honeybadger.app/terms"
+        static let privacyPolicy = "https://honeybadger.app/privacy"
+        static let smsTerms = "https://honeybadger.app/sms-terms"
     }
 }
