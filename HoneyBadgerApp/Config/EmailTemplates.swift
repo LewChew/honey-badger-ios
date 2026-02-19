@@ -18,6 +18,15 @@ struct EmailTemplates {
     static let honeyBadgerMascotURL = "https://api.badgerbot.net/images/honey-badger-mascot.png"
     static let giftIconURL = "https://api.badgerbot.net/images/gift-icon.png"
 
+    // Dynamic mascot URLs (fetches occasion-specific AI-generated mascots)
+    static func dynamicMascotURL(for occasion: String) -> String {
+        return DynamicMascotURL.forOccasion(occasion)
+    }
+
+    static var featuredMascotURL: String {
+        return DynamicMascotURL.featured
+    }
+
     // MARK: - Gift Notification Email
 
     static func giftNotificationEmail(

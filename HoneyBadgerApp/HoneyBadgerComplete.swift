@@ -3697,13 +3697,13 @@ struct ChallengeConfigView: View {
                     ZStack {
                         Rectangle()
                             .fill(Color.black)
-                            .frame(height: 36)
+                            .frame(height: 44)
 
                         GeometryReader { geo in
                             let tickerText = sampleChallenges.joined(separator: "  ///  ")
                             HStack(spacing: 0) {
                                 Text(tickerText + "  ///  " + tickerText)
-                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .font(.system(size: 18, weight: .bold, design: .monospaced))
                                     .foregroundColor(digitalGreen)
                                     .fixedSize()
                             }
@@ -3712,7 +3712,7 @@ struct ChallengeConfigView: View {
                                 startTickerAnimation(width: geo.size.width)
                             }
                         }
-                        .frame(height: 36)
+                        .frame(height: 44)
                         .clipped()
                     }
                     .onTapGesture {
@@ -3817,14 +3817,14 @@ struct ChallengeConfigView: View {
 
     private func startTickerAnimation(width: CGFloat) {
         let tickerText = sampleChallenges.joined(separator: "  ///  ")
-        // Estimate text width (roughly 8 points per character for monospaced)
-        let textWidth = CGFloat(tickerText.count) * 8
+        // Estimate text width (~11 points per character for 18pt bold monospaced)
+        let textWidth = CGFloat(tickerText.count) * 11
 
         // Start from right edge
         tickerOffset = 0
 
-        // Animate continuously
-        withAnimation(.linear(duration: 25).repeatForever(autoreverses: false)) {
+        // Animate continuously — slow scroll for readability
+        withAnimation(.linear(duration: 50).repeatForever(autoreverses: false)) {
             tickerOffset = -textWidth
         }
     }
