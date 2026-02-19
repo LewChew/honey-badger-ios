@@ -1858,38 +1858,38 @@ struct AccountEditScreen: View {
                 HBTheme.darkBg.ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 14) {
                         // Profile Icon
                         ZStack {
                             Circle()
                                 .fill(HBTheme.primaryYellow.opacity(0.2))
-                                .frame(width: 100, height: 100)
+                                .frame(width: 64, height: 64)
 
                             Image(systemName: "person.fill")
-                                .font(.system(size: 40))
+                                .font(.system(size: 26))
                                 .foregroundColor(HBTheme.primaryYellow)
                         }
-                        .padding(.top, 20)
+                        .padding(.top, 10)
 
                         // Profile Information Section
-                        VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Profile Information")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(.white)
 
-                            VStack(spacing: 16) {
-                                VStack(alignment: .leading, spacing: 8) {
+                            VStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Name")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.gray)
                                     TextField("Full Name", text: $name)
                                         .textFieldStyle(HBTextFieldStyle())
                                         .textInputAutocapitalization(.words)
                                 }
 
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Email")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.gray)
                                     TextField("Email", text: $email)
                                         .textFieldStyle(HBTextFieldStyle())
@@ -1907,45 +1907,46 @@ struct AccountEditScreen: View {
                                         .frame(maxWidth: .infinity)
                                 } else {
                                     Text("UPDATE PROFILE")
+                                        .font(.system(size: 14, weight: .bold))
                                         .frame(maxWidth: .infinity)
                                 }
                             }
                             .stylePrimary()
                             .disabled(name.count < 2 || isLoading)
                         }
-                        .padding(20)
+                        .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
+                            RoundedRectangle(cornerRadius: 14)
                                 .fill(HBTheme.cardBg)
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
 
                         // Change Password Section
-                        VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Change Password")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(.white)
 
-                            VStack(spacing: 16) {
-                                VStack(alignment: .leading, spacing: 8) {
+                            VStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Current Password")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.gray)
                                     SecureField("Current Password", text: $currentPassword)
                                         .textFieldStyle(HBTextFieldStyle())
                                 }
 
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("New Password")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.gray)
                                     SecureField("New Password", text: $newPassword)
                                         .textFieldStyle(HBTextFieldStyle())
                                 }
 
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Confirm New Password")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.gray)
                                     SecureField("Confirm New Password", text: $confirmNewPassword)
                                         .textFieldStyle(HBTextFieldStyle())
@@ -1965,32 +1966,33 @@ struct AccountEditScreen: View {
                                         .frame(maxWidth: .infinity)
                                 } else {
                                     Text("CHANGE PASSWORD")
+                                        .font(.system(size: 14, weight: .bold))
                                         .frame(maxWidth: .infinity)
                                 }
                             }
                             .stylePrimary()
                             .disabled(!canChangePassword || isLoading)
                         }
-                        .padding(20)
+                        .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
+                            RoundedRectangle(cornerRadius: 14)
                                 .fill(HBTheme.cardBg)
                         )
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
 
                         // Error/Success Messages
                         if let error = errorMessage {
                             Text(error)
-                                .font(.system(size: 14))
+                                .font(.system(size: 13))
                                 .foregroundColor(.red)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, 16)
                         }
 
                         if showSuccessMessage {
                             Text("Profile updated successfully!")
-                                .font(.system(size: 14))
+                                .font(.system(size: 13))
                                 .foregroundColor(.green)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, 16)
                         }
 
                         // Logout Button
@@ -1998,24 +2000,24 @@ struct AccountEditScreen: View {
                             isPresented = false
                             auth.logout()
                         }) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "arrow.right.square")
-                                    .font(.system(size: 18))
+                                    .font(.system(size: 15))
                                 Text("Log Out")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                             }
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 10)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: 10)
                                     .stroke(Color.red.opacity(0.5), lineWidth: 1)
                             )
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
 
-                        Spacer(minLength: 40)
+                        Spacer(minLength: 16)
                     }
                 }
             }
