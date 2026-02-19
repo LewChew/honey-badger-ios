@@ -1389,11 +1389,11 @@ struct DashboardScreen: View {
 
     // Combined count for determining if we should show "See All"
     private var totalBadgersCount: Int {
-        giftStateManager.pendingApprovals.count + sentGifts.count
+        giftStateManager.pendingApprovals.count + sentGifts.count + giftStateManager.receivedGifts.count
     }
 
     private var hasBadgersContent: Bool {
-        !giftStateManager.pendingApprovals.isEmpty || !sentGifts.isEmpty
+        !giftStateManager.pendingApprovals.isEmpty || !sentGifts.isEmpty || !giftStateManager.receivedGifts.isEmpty
     }
 
     private var badgersSection: some View {
@@ -1485,10 +1485,13 @@ struct DashboardScreen: View {
 
     private var badgersList: some View {
         let pendingApprovals = giftStateManager.pendingApprovals
+        let received = giftStateManager.receivedGifts
         let maxItems = 3
         let pendingCount = min(pendingApprovals.count, maxItems)
-        let remainingSlots = max(0, maxItems - pendingCount)
-        let giftsToShow = Array(sentGifts.prefix(remainingSlots))
+        var remaining = max(0, maxItems - pendingCount)
+        let sentToShow = Array(sentGifts.prefix(remaining))
+        remaining = max(0, remaining - sentToShow.count)
+        let receivedToShow = Array(received.prefix(remaining))
 
         return VStack(spacing: 8) {
             // Pending approvals first
@@ -1497,8 +1500,13 @@ struct DashboardScreen: View {
             }
 
             // Then sent gifts
-            ForEach(giftsToShow, id: \.id) { gift in
+            ForEach(sentToShow, id: \.id) { gift in
                 compactBadgerRow(gift: gift)
+            }
+
+            // Then received gifts
+            ForEach(receivedToShow, id: \.id) { gift in
+                compactReceivedRow(gift: gift)
             }
         }
     }
@@ -1598,6 +1606,59 @@ struct DashboardScreen: View {
                 Spacer()
 
                 // Status indicator
+                Circle()
+                    .fill(gift.status == "completed" ? Color.green : Color.orange)
+                    .frame(width: 10, height: 10)
+            }
+            .padding(10)
+            .background(HBTheme.cardBg.opacity(0.5))
+            .cornerRadius(10)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func compactReceivedRow(gift: Gift) -> some View {
+        Button(action: {
+            selectedGift = gift
+            showGiftDetail = true
+        }) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: gift.status == "completed" ? "checkmark.seal.fill" : "gift.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(gift.giftType)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        Text("Received")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green)
+                            .cornerRadius(4)
+                    }
+
+                    if let senderName = gift.senderName, !senderName.isEmpty {
+                        Text("From: \(senderName)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
                 Circle()
                     .fill(gift.status == "completed" ? Color.green : Color.orange)
                     .frame(width: 10, height: 10)
