@@ -1405,7 +1405,7 @@ struct DashboardScreen: View {
 
                 Spacer()
 
-                if totalBadgersCount > 5 {
+                if totalBadgersCount > 3 {
                     Button(action: { showBadgersScreen = true }) {
                         HStack(spacing: 4) {
                             Text("See All")
@@ -1485,7 +1485,7 @@ struct DashboardScreen: View {
 
     private var badgersList: some View {
         let pendingApprovals = giftStateManager.pendingApprovals
-        let maxItems = 5
+        let maxItems = 3
         let pendingCount = min(pendingApprovals.count, maxItems)
         let remainingSlots = max(0, maxItems - pendingCount)
         let giftsToShow = Array(sentGifts.prefix(remainingSlots))
