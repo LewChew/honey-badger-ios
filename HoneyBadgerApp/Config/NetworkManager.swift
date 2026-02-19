@@ -160,11 +160,16 @@ class NetworkManager: ObservableObject {
         }
     }
 
-    // MARK: - Gift Methods
+    // MARK: - Password Reset Methods
 
-    func sendGift(recipientPhone: String, giftType: String, challengeType: String, giftDetails: [String: Any]) async throws -> GiftResponse {
-        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.sendGift)")!
-        let request = authenticatedRequest(url: url, method: "POST", body: giftDetails)
+    func forgotPassword(email: String) async throws -> ForgotPasswordResponse {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.forgotPassword)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["email": email]
+        request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -172,9 +177,69 @@ class NetworkManager: ObservableObject {
             throw NetworkError.invalidResponse
         }
 
+        if httpResponse.statusCode == 200 {
+            return try JSONDecoder().decode(ForgotPasswordResponse.self, from: data)
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to request password reset")
+        }
+    }
+
+    func resetPassword(token: String, newPassword: String) async throws -> SimpleResponse {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.resetPassword)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["token": token, "newPassword": newPassword]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            return try JSONDecoder().decode(SimpleResponse.self, from: data)
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to reset password")
+        }
+    }
+
+    // MARK: - Gift Methods
+
+    func sendGift(recipientPhone: String, giftType: String, challengeType: String, giftDetails: [String: Any]) async throws -> GiftResponse {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.sendGift)")!
+        let request = authenticatedRequest(url: url, method: "POST", body: giftDetails)
+
+        print("📤 sendGift request to: \(url.absoluteString)")
+        if let bodyData = request.httpBody, let bodyString = String(data: bodyData, encoding: .utf8) {
+            print("📤 Request body: \(bodyString)")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // Debug: Print raw response
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("📥 sendGift raw response: \(jsonString)")
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        print("📊 sendGift HTTP status: \(httpResponse.statusCode)")
+
         if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
-            let giftResponse = try JSONDecoder().decode(GiftResponse.self, from: data)
-            return giftResponse
+            do {
+                let giftResponse = try JSONDecoder().decode(GiftResponse.self, from: data)
+                return giftResponse
+            } catch {
+                print("❌ sendGift decode error: \(error)")
+                throw error
+            }
         } else {
             let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
             throw NetworkError.serverError(errorResponse?.message ?? "Failed to send gift")
@@ -436,10 +501,27 @@ struct ErrorResponse: Codable {
     let message: String
 }
 
+struct ForgotPasswordResponse: Codable {
+    let success: Bool
+    let message: String
+}
+
+struct SimpleResponse: Codable {
+    let success: Bool
+    let message: String
+}
+
 struct GiftResponse: Codable {
     let success: Bool
-    let giftId: String
-    let challengeId: String?
+    let message: String?
+    let trackingId: String?
+    let sender: String?
+    let note: String?
+
+    // Computed property for backwards compatibility
+    var giftId: String {
+        return trackingId ?? ""
+    }
 }
 
 struct Gift: Codable, Identifiable {
@@ -557,13 +639,13 @@ struct PendingApprovalsResponse: Codable {
 
 // MARK: - Network Errors
 
-enum NetworkError: Error {
+enum NetworkError: LocalizedError {
     case invalidResponse
     case unauthorized
     case serverError(String)
     case decodingError
 
-    var localizedDescription: String {
+    var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "Invalid response from server"

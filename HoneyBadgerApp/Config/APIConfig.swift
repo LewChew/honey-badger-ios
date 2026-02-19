@@ -12,11 +12,16 @@ struct HoneyBadgerAPIConfig {
     // Production backend
     static let baseURL = "https://api.badgerbot.net"
 
+    // Mascot service
+    static let mascotServiceURL = "https://mascot.honeybadger.app"
+
     struct Endpoints {
         static let login = "/api/login"
         static let signup = "/api/signup"
         static let me = "/api/auth/me"
         static let logout = "/api/auth/logout"
+        static let forgotPassword = "/api/auth/forgot-password"
+        static let resetPassword = "/api/auth/reset-password"
         static let sendGift = "/api/send-honey-badger"
         static let gifts = "/api/honey-badgers"
         static let receivedGifts = "/api/my-received-gifts"

@@ -580,6 +580,7 @@ struct LoginScreen: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showSignup = false
+    @State private var showForgotPassword = false
 
     var body: some View {
         NavigationView {
@@ -616,6 +617,17 @@ struct LoginScreen: View {
                     }
                     .padding(.horizontal, 32)
                     .padding(.top, 20)
+
+                    // Forgot Password Link
+                    HStack {
+                        Spacer()
+                        Button(action: { showForgotPassword = true }) {
+                            Text("Forgot Password?")
+                                .font(.system(size: 14))
+                                .foregroundColor(HBTheme.primaryYellow)
+                        }
+                    }
+                    .padding(.horizontal, 32)
 
                     // Error message
                     if let errorMessage = auth.errorMessage {
@@ -658,6 +670,9 @@ struct LoginScreen: View {
                 SignupScreen(isPresented: $showSignup)
                     .environmentObject(auth)
             }
+            .sheet(isPresented: $showForgotPassword) {
+                ForgotPasswordScreen(isPresented: $showForgotPassword)
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("✕") {
@@ -682,6 +697,271 @@ struct LoginScreen: View {
                         isPresented = false
                     }
                     break
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Forgot Password Screen
+
+struct ForgotPasswordScreen: View {
+    @Binding var isPresented: Bool
+    @State private var email = ""
+    @State private var isLoading = false
+    @State private var successMessage: String?
+    @State private var errorMessage: String?
+    @State private var showResetPassword = false
+    @State private var resetToken = ""
+
+    private let networkManager = NetworkManager()
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    Spacer()
+
+                    Image(systemName: "lock.rotation")
+                        .resizable()
+                        .frame(width: 60, height: 60)
+                        .foregroundColor(HBTheme.primaryYellow)
+                        .shadow(color: HBTheme.primaryYellow.opacity(0.4), radius: 20)
+
+                    Text("Reset Password")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+
+                    Text("Enter your email and we'll send you a reset link")
+                        .font(.system(size: 15))
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+
+                    TextField("Email", text: $email)
+                        .textFieldStyle(HBTextFieldStyle())
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 12)
+
+                    if let error = errorMessage {
+                        Text(error)
+                            .font(.system(size: 14))
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 32)
+                    }
+
+                    if let success = successMessage {
+                        Text(success)
+                            .font(.system(size: 14))
+                            .foregroundColor(.green)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        // Show "Enter Reset Token" button after email is sent
+                        Button(action: { showResetPassword = true }) {
+                            Text("I HAVE A RESET TOKEN")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .styleSecondary()
+                        .padding(.horizontal, 32)
+                    }
+
+                    Button(action: requestReset) {
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                        } else {
+                            Text(successMessage != nil ? "RESEND EMAIL" : "SEND RESET LINK")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .stylePrimary()
+                    .disabled(email.isEmpty || isLoading)
+                    .padding(.horizontal, 32)
+
+                    Spacer()
+                }
+            }
+            .sheet(isPresented: $showResetPassword) {
+                ResetPasswordScreen(isPresented: $showResetPassword, parentPresented: $isPresented)
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("✕") {
+                        isPresented = false
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    private func requestReset() {
+        isLoading = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let response = try await networkManager.forgotPassword(email: email)
+                await MainActor.run {
+                    successMessage = response.message
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Reset Password Screen
+
+struct ResetPasswordScreen: View {
+    @Binding var isPresented: Bool
+    @Binding var parentPresented: Bool
+    @State private var token = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var resetComplete = false
+
+    private let networkManager = NetworkManager()
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    Spacer()
+
+                    if resetComplete {
+                        // Success state
+                        Image(systemName: "checkmark.circle.fill")
+                            .resizable()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(.green)
+
+                        Text("Password Reset!")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text("You can now log in with your new password.")
+                            .font(.system(size: 15))
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        Button(action: {
+                            isPresented = false
+                            parentPresented = false
+                        }) {
+                            Text("BACK TO LOGIN")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .stylePrimary()
+                        .padding(.horizontal, 32)
+                    } else {
+                        // Form state
+                        Image(systemName: "key.fill")
+                            .resizable()
+                            .frame(width: 50, height: 50)
+                            .foregroundColor(HBTheme.primaryYellow)
+                            .shadow(color: HBTheme.primaryYellow.opacity(0.4), radius: 20)
+
+                        Text("New Password")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text("Paste the token from your email and choose a new password")
+                            .font(.system(size: 15))
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        VStack(spacing: 16) {
+                            TextField("Reset Token", text: $token)
+                                .textFieldStyle(HBTextFieldStyle())
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+
+                            SecureField("New Password", text: $newPassword)
+                                .textFieldStyle(HBTextFieldStyle())
+
+                            SecureField("Confirm Password", text: $confirmPassword)
+                                .textFieldStyle(HBTextFieldStyle())
+                        }
+                        .padding(.horizontal, 32)
+
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(.system(size: 14))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 32)
+                        }
+
+                        Button(action: resetPassword) {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            } else {
+                                Text("RESET PASSWORD")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .stylePrimary()
+                        .disabled(token.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty || isLoading)
+                        .padding(.horizontal, 32)
+                    }
+
+                    Spacer()
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("✕") {
+                        isPresented = false
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    private func resetPassword() {
+        errorMessage = nil
+
+        guard newPassword == confirmPassword else {
+            errorMessage = "Passwords do not match"
+            return
+        }
+
+        guard newPassword.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters"
+            return
+        }
+
+        isLoading = true
+
+        Task {
+            do {
+                let _ = try await networkManager.resetPassword(token: token, newPassword: newPassword)
+                await MainActor.run {
+                    resetComplete = true
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
                 }
             }
         }
@@ -2874,20 +3154,17 @@ struct SendBadgerScreen: View {
     var body: some View {
         ZStack {
             if showSplash {
-                // Combined Splash Screen with rotating badger images
+                // Combined Splash Screen with AI-generated or bundled mascot
                 ZStack {
                     HBTheme.darkBg.ignoresSafeArea()
                     VStack(spacing: 40) {
-                        Image(currentSplashImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 250)
+                        MascotImageView.featured(size: 250)
                             .padding(.horizontal, 40)
                     }
                 }
                 .onAppear {
-                    // Pick a random badger image
-                    currentSplashImage = badgerImages.randomElement() ?? "HoneyBadger_toon"
+                    // Preload featured image for next time
+                    MascotImageService.shared.preloadFeaturedImage()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         withAnimation {
                             showSplash = false
@@ -2903,10 +3180,7 @@ struct SendBadgerScreen: View {
             if showTransitionFlash {
                 ZStack {
                     HBTheme.darkBg.ignoresSafeArea()
-                    Image(currentSplashImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 180)
+                    MascotImageView.random(size: 180)
                         .padding(.horizontal, 60)
                 }
                 .transition(.opacity)
