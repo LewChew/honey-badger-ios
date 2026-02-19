@@ -452,6 +452,47 @@ class NetworkManager: ObservableObject {
 
     // MARK: - Helper Methods
 
+    // MARK: - Challenge Submission
+
+    func submitChallengePhoto(trackingId: String, imageData: Data) async throws -> ChallengeSubmissionResponse {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)/api/gifts/\(trackingId)/submit-challenge")!
+
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        if let token = authToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Build multipart body
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"photo\"; filename=\"challenge.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 201 || httpResponse.statusCode == 200 {
+            let decoded = try JSONDecoder().decode(ChallengeSubmissionResponse.self, from: data)
+            return decoded
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to submit challenge photo")
+        }
+    }
+
     private func authenticatedRequest(url: URL, method: String = "GET", body: [String: Any]? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -545,6 +586,7 @@ struct Gift: Codable, Identifiable {
     let reminderFrequency: String?
     let verificationType: String?
     let cardImageUrl: String?
+    let challengeId: String?
 
     enum CodingKeys: String, CodingKey {
         case id, recipientPhone, recipientEmail, recipientName
@@ -552,6 +594,7 @@ struct Gift: Codable, Identifiable {
         case senderName, senderEmail, challengeDescription
         case personalNote, message, duration, deliveryMethod
         case reminderFrequency, verificationType, cardImageUrl
+        case challengeId
     }
 
     init(from decoder: Decoder) throws {
@@ -574,6 +617,7 @@ struct Gift: Codable, Identifiable {
         reminderFrequency = try container.decodeIfPresent(String.self, forKey: .reminderFrequency)
         verificationType = try container.decodeIfPresent(String.self, forKey: .verificationType)
         cardImageUrl = try container.decodeIfPresent(String.self, forKey: .cardImageUrl)
+        challengeId = try container.decodeIfPresent(String.self, forKey: .challengeId)
 
         // Handle duration which might come as Int or String
         if let durationInt = try? container.decodeIfPresent(Int.self, forKey: .duration) {
@@ -637,6 +681,19 @@ struct PendingApprovalsResponse: Codable {
     let success: Bool
     let pendingApprovals: [PendingApproval]
     let count: Int
+}
+
+// MARK: - Challenge Submission Models
+
+struct ChallengeSubmissionResponse: Codable {
+    let success: Bool
+    let data: ChallengeSubmissionData?
+}
+
+struct ChallengeSubmissionData: Codable {
+    let submissionId: String
+    let photoUrl: String
+    let status: String
 }
 
 // MARK: - Network Errors

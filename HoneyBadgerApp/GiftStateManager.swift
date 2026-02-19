@@ -110,6 +110,22 @@ class GiftStateManager: ObservableObject {
         }
     }
 
+    // MARK: - Challenge Submission
+
+    func submitChallengePhoto(giftId: String, imageData: Data) async -> Bool {
+        do {
+            let response = try await networkManager.submitChallengePhoto(trackingId: giftId, imageData: imageData)
+            if response.success {
+                await refreshReceivedGifts()
+                return true
+            }
+            return false
+        } catch {
+            print("❌ GiftStateManager: Error submitting challenge photo: \(error)")
+            return false
+        }
+    }
+
     // MARK: - Computed Properties
 
     var pendingApprovalsCount: Int {

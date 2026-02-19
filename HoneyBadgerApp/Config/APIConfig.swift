@@ -44,6 +44,10 @@ struct HoneyBadgerAPIConfig {
             return "/api/challenges/\(challengeId)/upload-photo"
         }
 
+        static func submitChallengeByGift(trackingId: String) -> String {
+            return "/api/gifts/\(trackingId)/submit-challenge"
+        }
+
         // Submission review endpoints
         static func reviewSubmission(id: String) -> String {
             return "/api/submissions/\(id)/review"

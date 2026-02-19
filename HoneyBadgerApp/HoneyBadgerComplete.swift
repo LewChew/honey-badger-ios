@@ -2725,13 +2725,13 @@ struct EnhancedBadgerRow: View {
 
             // Lock status
             VStack(spacing: 4) {
-                Image(systemName: gift.status == "completed" ? "lock.open.fill" : "lock.fill")
+                Image(systemName: gift.status == "completed" ? "lock.open.fill" : gift.status == "pending_approval" ? "clock.fill" : "lock.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(gift.status == "completed" ? .green : .orange)
+                    .foregroundColor(gift.status == "completed" ? .green : gift.status == "pending_approval" ? .blue : .orange)
 
-                Text(gift.status == "completed" ? "Unlocked" : "Locked")
+                Text(gift.status == "completed" ? "Unlocked" : gift.status == "pending_approval" ? "Pending" : "Locked")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(gift.status == "completed" ? .green : .orange)
+                    .foregroundColor(gift.status == "completed" ? .green : gift.status == "pending_approval" ? .blue : .orange)
             }
 
             Image(systemName: "chevron.right")
@@ -2747,6 +2747,8 @@ struct EnhancedBadgerRow: View {
         switch gift.status.lowercased() {
         case "completed":
             return .green
+        case "pending_approval":
+            return .blue
         case "pending":
             return .orange
         case "active":
@@ -2760,6 +2762,8 @@ struct EnhancedBadgerRow: View {
         switch gift.status.lowercased() {
         case "completed":
             return "checkmark.seal.fill"
+        case "pending_approval":
+            return "clock.badge.checkmark.fill"
         case "pending":
             return "clock.fill"
         case "active":
@@ -2834,6 +2838,7 @@ struct GiftDetailScreen: View {
     let gift: Gift
     var isSentGift: Bool = true
     @Environment(\.dismiss) private var dismiss
+    @State private var showPhotoSubmission = false
 
     private let badgerQuotes = [
         "Honey Badger believes in you! 💪",
@@ -2947,16 +2952,16 @@ struct GiftDetailScreen: View {
                                 }
                                 .padding(16)
 
-                                // Lock badge for locked gifts
+                                // Lock/status badge for non-completed gifts
                                 if gift.status != "completed" {
                                     VStack {
                                         HStack {
                                             Spacer()
-                                            Image(systemName: "lock.fill")
+                                            Image(systemName: gift.status == "pending_approval" ? "clock.fill" : "lock.fill")
                                                 .font(.system(size: 16))
                                                 .foregroundColor(.white)
                                                 .padding(10)
-                                                .background(Circle().fill(Color.orange.opacity(0.8)))
+                                                .background(Circle().fill((gift.status == "pending_approval" ? Color.blue : Color.orange).opacity(0.8)))
                                                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                                                 .padding(12)
                                         }
@@ -2989,6 +2994,26 @@ struct GiftDetailScreen: View {
                                         )
                                 )
                                 .padding(.horizontal, 20)
+                            } else if gift.status == "pending_approval" {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "clock.badge.checkmark.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.blue)
+                                    Text("Photo submitted — Awaiting approval")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.blue)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.blue.opacity(0.15))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .padding(.horizontal, 20)
                             } else {
                                 HStack(spacing: 10) {
                                     Image(systemName: "lock.fill")
@@ -3008,6 +3033,30 @@ struct GiftDetailScreen: View {
                                                 .stroke(Color.orange.opacity(0.3), lineWidth: 1)
                                         )
                                 )
+                                .padding(.horizontal, 20)
+                            }
+
+                            // Submit challenge photo button for locked received gifts
+                            if !isSentGift && gift.status != "completed" && gift.status != "pending_approval" {
+                                Button(action: { showPhotoSubmission = true }) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "camera.fill")
+                                            .font(.system(size: 18))
+                                        Text("SUBMIT CHALLENGE PHOTO")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                    .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .cornerRadius(30)
+                                }
                                 .padding(.horizontal, 20)
                             }
                         }
@@ -3176,6 +3225,9 @@ struct GiftDetailScreen: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(HBTheme.darkBg)
+        .sheet(isPresented: $showPhotoSubmission) {
+            ChallengePhotoSubmissionSheet(gift: gift, isPresented: $showPhotoSubmission)
+        }
     }
 
     private func formatRelativeDate(_ dateString: String) -> String {
@@ -4678,6 +4730,167 @@ struct GiftCardConfigScreen: View {
                             .foregroundColor(.gray)
                             .font(.system(size: 24))
                     }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Challenge Photo Submission Sheet
+
+struct ChallengePhotoSubmissionSheet: View {
+    let gift: Gift
+    @Binding var isPresented: Bool
+    @State private var selectedImageData: Data?
+    @State private var showImagePicker = false
+    @State private var isUploading = false
+    @State private var errorMessage: String?
+    @State private var uploadSuccess = false
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                HBTheme.darkBg.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        VStack(spacing: 12) {
+                            Text("🦡")
+                                .font(.system(size: 48))
+
+                            Text("Complete Your Challenge")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.white)
+
+                            if let description = gift.challengeDescription, !description.isEmpty {
+                                Text(description)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                            } else if let challengeType = gift.challengeType, !challengeType.isEmpty {
+                                Text(challengeType)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding(.top, 20)
+                        .padding(.horizontal, 20)
+
+                        // Photo area
+                        if let imageData = selectedImageData,
+                           let uiImage = UIImage(data: imageData) {
+                            VStack(spacing: 16) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxHeight: 280)
+                                    .cornerRadius(16)
+                                    .padding(.horizontal, 20)
+
+                                Button(action: { showImagePicker = true }) {
+                                    Text("Change Photo")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(HBTheme.primaryYellow)
+                                }
+                            }
+                        } else {
+                            Button(action: { showImagePicker = true }) {
+                                VStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                                            .foregroundColor(HBTheme.primaryYellow.opacity(0.5))
+                                            .frame(height: 200)
+
+                                        VStack(spacing: 12) {
+                                            Image(systemName: "camera.fill")
+                                                .font(.system(size: 48))
+                                                .foregroundColor(HBTheme.primaryYellow)
+
+                                            Text("Tap to select your challenge photo")
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+
+                        // Error message
+                        if let errorMessage = errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 14))
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 20)
+                        }
+
+                        // Submit button
+                        if selectedImageData != nil {
+                            Button(action: { submitPhoto() }) {
+                                HStack(spacing: 10) {
+                                    if isUploading {
+                                        ProgressView()
+                                            .tint(.black)
+                                    } else {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.system(size: 18))
+                                        Text("SUBMIT FOR APPROVAL")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                }
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient(
+                                        colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(30)
+                            }
+                            .disabled(isUploading)
+                            .opacity(isUploading ? 0.7 : 1.0)
+                            .padding(.horizontal, 20)
+                        }
+
+                        Spacer(minLength: 40)
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 24))
+                    }
+                }
+            }
+            .sheet(isPresented: $showImagePicker) {
+                ImagePicker(imageData: $selectedImageData)
+            }
+        }
+    }
+
+    private func submitPhoto() {
+        guard let imageData = selectedImageData else { return }
+        isUploading = true
+        errorMessage = nil
+
+        Task {
+            let success = await GiftStateManager.shared.submitChallengePhoto(giftId: gift.id, imageData: imageData)
+            await MainActor.run {
+                isUploading = false
+                if success {
+                    uploadSuccess = true
+                    isPresented = false
+                } else {
+                    errorMessage = "Failed to submit photo. Please try again."
                 }
             }
         }
