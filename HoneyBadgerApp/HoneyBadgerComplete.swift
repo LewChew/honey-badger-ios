@@ -1682,6 +1682,48 @@ struct DashboardScreen: View {
     }
 }
 
+// MARK: - Splash Image Screen
+
+struct SplashImageScreen: View {
+    let useFeatured: Bool
+    @State private var driftOffset: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            HBTheme.darkBg.ignoresSafeArea()
+
+            // Subtle ambient glow
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    HBTheme.primaryYellow.opacity(0.07),
+                    Color.clear
+                ]),
+                center: .center,
+                startRadius: 50,
+                endRadius: 350
+            )
+            .ignoresSafeArea()
+
+            // Full-screen mascot with gentle drift
+            Group {
+                if useFeatured {
+                    MascotImageView.featuredFullScreen()
+                } else {
+                    MascotImageView.randomFullScreen()
+                }
+            }
+            .scaleEffect(1.08)
+            .offset(y: driftOffset)
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                driftOffset = 8
+            }
+        }
+    }
+}
+
 // MARK: - About Screen
 
 struct AboutScreen: View {
@@ -3026,24 +3068,9 @@ struct SendBadgerScreen: View {
     var body: some View {
         ZStack {
             if showSplash {
-                // Full-screen splash with zoomed-in mascot
-                ZStack {
-                    HBTheme.darkBg.ignoresSafeArea()
-
-                    // Background glow
-                    Circle()
-                        .fill(HBTheme.primaryYellow.opacity(0.08))
-                        .frame(width: 500, height: 500)
-                        .blur(radius: 80)
-
-                    MascotImageView.featured(size: 500)
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                        .ignoresSafeArea()
-                }
+                // Full-screen splash — image fills the entire display
+                SplashImageScreen(useFeatured: true)
                 .onAppear {
-                    // Preload featured image for next time
                     MascotImageService.shared.preloadFeaturedImage()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         withAnimation {
@@ -3056,24 +3083,11 @@ struct SendBadgerScreen: View {
                 mainContentView
             }
 
-            // Flash transition overlay - full screen zoomed badger
+            // Flash transition overlay — full screen random badger
             if showTransitionFlash {
-                ZStack {
-                    HBTheme.darkBg.ignoresSafeArea()
-
-                    Circle()
-                        .fill(HBTheme.primaryYellow.opacity(0.06))
-                        .frame(width: 600, height: 600)
-                        .blur(radius: 100)
-
-                    MascotImageView.random(size: 450)
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                        .ignoresSafeArea()
-                }
-                .transition(.opacity)
-                .zIndex(100)
+                SplashImageScreen(useFeatured: false)
+                    .transition(.opacity)
+                    .zIndex(100)
             }
         }
     }

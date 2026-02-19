@@ -13,6 +13,7 @@ struct MascotImageView: View {
     let size: CGFloat
     let useFeatured: Bool
     let showLoadingIndicator: Bool
+    let fullScreen: Bool
 
     @State private var mascotImage: MascotImage?
     @State private var isLoading = true
@@ -25,12 +26,14 @@ struct MascotImageView: View {
         occasion: String? = nil,
         size: CGFloat = 200,
         useFeatured: Bool = false,
-        showLoadingIndicator: Bool = false
+        showLoadingIndicator: Bool = false,
+        fullScreen: Bool = false
     ) {
         self.occasion = occasion
         self.size = size
         self.useFeatured = useFeatured
         self.showLoadingIndicator = showLoadingIndicator
+        self.fullScreen = fullScreen
         self._fallbackImageName = State(initialValue: MascotImageService.shared.getFallbackImageName())
     }
 
@@ -38,7 +41,11 @@ struct MascotImageView: View {
         Group {
             if loadFailed || mascotImage == nil {
                 // Fallback to bundled asset
-                bundledImage
+                if fullScreen {
+                    fullScreenBundledImage
+                } else {
+                    bundledImage
+                }
             } else if let mascot = mascotImage, let url = mascot.imageURL {
                 // Load from CDN
                 AsyncImage(url: url) { phase in
@@ -46,22 +53,36 @@ struct MascotImageView: View {
                     case .empty:
                         if showLoadingIndicator {
                             loadingView
+                        } else if fullScreen {
+                            fullScreenBundledImage
                         } else {
                             bundledImage
                         }
                     case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: size >= 400 ? .fill : .fit)
-                            .frame(height: size)
+                        if fullScreen {
+                            fullScreenRendered(image: image)
+                        } else {
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: size)
+                        }
                     case .failure:
-                        bundledImage
+                        if fullScreen {
+                            fullScreenBundledImage
+                        } else {
+                            bundledImage
+                        }
                     @unknown default:
                         bundledImage
                     }
                 }
             } else {
-                bundledImage
+                if fullScreen {
+                    fullScreenBundledImage
+                } else {
+                    bundledImage
+                }
             }
         }
         .task {
@@ -72,8 +93,28 @@ struct MascotImageView: View {
     private var bundledImage: some View {
         Image(fallbackImageName)
             .resizable()
-            .aspectRatio(contentMode: size >= 400 ? .fill : .fit)
+            .aspectRatio(contentMode: .fit)
             .frame(height: size)
+    }
+
+    private var fullScreenBundledImage: some View {
+        GeometryReader { geo in
+            Image(fallbackImageName)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+        }
+    }
+
+    private func fullScreenRendered(image: Image) -> some View {
+        GeometryReader { geo in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+        }
     }
 
     private var loadingView: some View {
@@ -106,9 +147,19 @@ struct MascotImageView: View {
 // MARK: - Convenience Initializers
 
 extension MascotImageView {
-    /// Create a featured mascot view for splash screens
+    /// Create a featured mascot view for splash screens (full screen)
     static func featured(size: CGFloat = 250) -> MascotImageView {
         MascotImageView(size: size, useFeatured: true)
+    }
+
+    /// Create a full-screen featured mascot for splash/transition
+    static func featuredFullScreen() -> MascotImageView {
+        MascotImageView(useFeatured: true, fullScreen: true)
+    }
+
+    /// Create a full-screen random mascot for transitions
+    static func randomFullScreen() -> MascotImageView {
+        MascotImageView(fullScreen: true)
     }
 
     /// Create an occasion-specific mascot view
