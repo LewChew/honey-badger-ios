@@ -3026,13 +3026,21 @@ struct SendBadgerScreen: View {
     var body: some View {
         ZStack {
             if showSplash {
-                // Combined Splash Screen with AI-generated or bundled mascot
+                // Full-screen splash with zoomed-in mascot
                 ZStack {
                     HBTheme.darkBg.ignoresSafeArea()
-                    VStack(spacing: 40) {
-                        MascotImageView.featured(size: 250)
-                            .padding(.horizontal, 40)
-                    }
+
+                    // Background glow
+                    Circle()
+                        .fill(HBTheme.primaryYellow.opacity(0.08))
+                        .frame(width: 500, height: 500)
+                        .blur(radius: 80)
+
+                    MascotImageView.featured(size: 500)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                        .ignoresSafeArea()
                 }
                 .onAppear {
                     // Preload featured image for next time
@@ -3048,12 +3056,21 @@ struct SendBadgerScreen: View {
                 mainContentView
             }
 
-            // Flash transition overlay
+            // Flash transition overlay - full screen zoomed badger
             if showTransitionFlash {
                 ZStack {
                     HBTheme.darkBg.ignoresSafeArea()
-                    MascotImageView.random(size: 180)
-                        .padding(.horizontal, 60)
+
+                    Circle()
+                        .fill(HBTheme.primaryYellow.opacity(0.06))
+                        .frame(width: 600, height: 600)
+                        .blur(radius: 100)
+
+                    MascotImageView.random(size: 450)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                        .ignoresSafeArea()
                 }
                 .transition(.opacity)
                 .zIndex(100)
@@ -3809,6 +3826,7 @@ struct WhoView: View {
     var currentUserEmail: String = ""
     @State private var showContactPicker = false
     @State private var showSMSDisclosure = false
+    @State private var appearAnimation = false
 
     var isValidInput: Bool {
         let emailValid = !recipientEmail.isEmpty && recipientEmail.contains("@") && recipientEmail.contains(".")
@@ -3826,84 +3844,151 @@ struct WhoView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 6) {
-                Text("Always Be Gifting")
+        VStack(spacing: 0) {
+            // Hero header with envelope image
+            ZStack {
+                // Accent glow behind envelope
+                Circle()
+                    .fill(HBTheme.primaryYellow.opacity(0.1))
+                    .frame(width: 200, height: 200)
+                    .blur(radius: 40)
+                    .offset(y: -10)
+
+                Image("HB_Future_Envelope")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 100)
+                    .scaleEffect(appearAnimation ? 1.0 : 0.8)
+                    .opacity(appearAnimation ? 1.0 : 0.0)
+            }
+            .padding(.top, 8)
+
+            // Title
+            VStack(spacing: 4) {
+                Text("Who's the lucky one?")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundColor(.white)
 
-                Text("Share the love with Honey Badgers")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
+                Text("Enter their details or pick a contact")
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
             }
-            .padding(.top, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 20)
 
-            VStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Email")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                    ZStack(alignment: .leading) {
-                        if recipientEmail.isEmpty {
-                            Text("Email")
-                                .font(.system(size: 16))
-                                .foregroundColor(.gray)
-                                .padding(.leading, 14)
-                        }
-                        TextField("", text: $recipientEmail)
+            // Input cards
+            VStack(spacing: 12) {
+                // Email field card
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(HBTheme.primaryYellow.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "envelope.fill")
                             .font(.system(size: 16))
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 14)
-                            .foregroundColor(isSendingToSelf ? .red : .white)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .autocorrectionDisabled()
+                            .foregroundColor(HBTheme.primaryYellow)
                     }
-                    .background(HBTheme.cardBg)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(isSendingToSelf ? Color.red : Color.clear, lineWidth: 2)
-                    )
 
-                    if isSendingToSelf {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
-                            Text("You can't send a Honey Badger to yourself!")
-                                .font(.system(size: 12))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Email")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(HBTheme.primaryYellow)
+                            .textCase(.uppercase)
+                        ZStack(alignment: .leading) {
+                            if recipientEmail.isEmpty {
+                                Text("recipient@email.com")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color.white.opacity(0.25))
+                            }
+                            TextField("", text: $recipientEmail)
+                                .font(.system(size: 15))
+                                .foregroundColor(isSendingToSelf ? .red : .white)
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.emailAddress)
+                                .autocorrectionDisabled()
                         }
-                        .foregroundColor(.red)
                     }
                 }
+                .padding(14)
+                .background(HBTheme.cardBg)
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(isSendingToSelf ? Color.red.opacity(0.8) : Color.white.opacity(0.06), lineWidth: 1)
+                )
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("SMS Phone #")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                    ZStack(alignment: .leading) {
-                        if recipientPhone.isEmpty {
-                            Text("Phone #")
-                                .font(.system(size: 16))
-                                .foregroundColor(.gray)
-                                .padding(.leading, 14)
-                        }
-                        TextField("", text: $recipientPhone)
-                            .font(.system(size: 16))
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 14)
-                            .foregroundColor(.white)
-                            .keyboardType(.phonePad)
+                if isSendingToSelf {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12))
+                        Text("You can't send a Honey Badger to yourself!")
+                            .font(.system(size: 12))
                     }
-                    .background(HBTheme.cardBg)
-                    .cornerRadius(10)
+                    .foregroundColor(.red)
                 }
+
+                // Phone field card
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(HBTheme.primaryYellow.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(HBTheme.primaryYellow)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Phone")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(HBTheme.primaryYellow)
+                            .textCase(.uppercase)
+                        ZStack(alignment: .leading) {
+                            if recipientPhone.isEmpty {
+                                Text("+1 (555) 000-0000")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color.white.opacity(0.25))
+                            }
+                            TextField("", text: $recipientPhone)
+                                .font(.system(size: 15))
+                                .foregroundColor(.white)
+                                .keyboardType(.phonePad)
+                        }
+                    }
+                }
+                .padding(14)
+                .background(HBTheme.cardBg)
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+
+                // Quick action: Select from contacts
+                Button(action: { showContactPicker = true }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.system(size: 18))
+                        Text("Select from Contacts")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(HBTheme.buttonGradient)
+                    .cornerRadius(14)
+                    .shadow(color: HBTheme.primaryYellow.opacity(0.25), radius: 8, x: 0, y: 4)
+                }
+                .padding(.top, 4)
 
                 // SMS Disclosure - appears when phone number is valid
                 if hasValidPhone {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("SMS Messaging Disclosure")
+                            Image(systemName: "message.badge.filled.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(HBTheme.primaryYellow)
+                            Text("SMS Disclosure")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(HBTheme.primaryYellow)
                             Spacer()
@@ -3931,38 +4016,21 @@ struct WhoView: View {
                     }
                     .padding(16)
                     .background(HBTheme.cardBg.opacity(0.8))
-                    .cornerRadius(12)
+                    .cornerRadius(14)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(HBTheme.primaryYellow.opacity(0.3), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(HBTheme.primaryYellow.opacity(0.2), lineWidth: 1)
                     )
-                }
-
-                // Add Contact Button
-                Button(action: { showContactPicker = true }) {
-                    Text("Select from Contacts")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(HBTheme.primaryYellow)
-                        .cornerRadius(10)
                 }
             }
             .padding(.horizontal, 20)
 
             Spacer()
-
-            // Image at bottom right
-            HStack {
-                Spacer()
-                Image("HB_Future_Envelope")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 120)
-                    .padding(.trailing, 20)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                appearAnimation = true
             }
-            .padding(.bottom, 10)
         }
         .sheet(isPresented: $showContactPicker) {
             ContactPicker(recipientName: $recipientName, recipientEmail: $recipientEmail, recipientPhone: $recipientPhone)
