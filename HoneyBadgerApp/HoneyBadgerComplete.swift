@@ -2835,6 +2835,14 @@ struct GiftDetailScreen: View {
     var isSentGift: Bool = true
     @Environment(\.dismiss) private var dismiss
 
+    private let badgerQuotes = [
+        "Honey Badger believes in you! 💪",
+        "You got this — Honey Badger never gives up!",
+        "Channel your inner Honey Badger! 🦡",
+        "Honey Badger don't quit. Neither should you!",
+        "Almost there — make Honey Badger proud! 🏆"
+    ]
+
     var body: some View {
         ZStack {
             HBTheme.darkBg.ignoresSafeArea()
@@ -2865,26 +2873,32 @@ struct GiftDetailScreen: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Header with honey badger icon
-                        VStack(spacing: 16) {
-                            ZStack {
-                                Circle()
-                                    .fill(HBTheme.primaryYellow.opacity(0.15))
-                                    .frame(width: 100, height: 100)
+                        if isSentGift {
+                            // SENT GIFT: Card preview at top (compact)
+                            ZStack(alignment: .bottomLeading) {
+                                GiftCardView(
+                                    cardImageUrl: gift.cardImageUrl,
+                                    occasion: "Just Because",
+                                    height: 160
+                                )
 
-                                Image(systemName: gift.status == "completed" ? "checkmark.seal.fill" : "pawprint.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(HBTheme.primaryYellow)
+                                Text(gift.recipientName ?? "Recipient")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .shadow(color: .black.opacity(0.5), radius: 3, x: 0, y: 1)
+                                    .padding(16)
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
 
+                            // Gift type and value
                             HStack(spacing: 8) {
                                 Text(gift.giftType)
-                                    .font(.system(size: 28, weight: .bold))
+                                    .font(.system(size: 22, weight: .bold))
                                     .foregroundColor(.white)
-
                                 if let value = gift.giftValue, !value.isEmpty {
                                     Text("$\(value)")
-                                        .font(.system(size: 20, weight: .semibold))
+                                        .font(.system(size: 18, weight: .semibold))
                                         .foregroundColor(HBTheme.primaryYellow)
                                 }
                             }
@@ -2903,8 +2917,100 @@ struct GiftDetailScreen: View {
                                 Capsule()
                                     .fill((gift.status == "completed" ? Color.green : Color.orange).opacity(0.2))
                             )
+                        } else {
+                            // RECEIVED GIFT: Full-width card image with sender overlay
+                            ZStack(alignment: .bottom) {
+                                GiftCardView(
+                                    cardImageUrl: gift.cardImageUrl,
+                                    occasion: "Just Because",
+                                    height: 220
+                                )
+
+                                // Sender name overlay
+                                HStack {
+                                    if let senderName = gift.senderName, !senderName.isEmpty {
+                                        Text("From \(senderName)")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                            .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
+                                    }
+                                    Spacer()
+                                    // Gift value badge
+                                    if let value = gift.giftValue, !value.isEmpty {
+                                        Text("$\(value)")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(Capsule().fill(Color.black.opacity(0.4)))
+                                    }
+                                }
+                                .padding(16)
+
+                                // Lock badge for locked gifts
+                                if gift.status != "completed" {
+                                    VStack {
+                                        HStack {
+                                            Spacer()
+                                            Image(systemName: "lock.fill")
+                                                .font(.system(size: 16))
+                                                .foregroundColor(.white)
+                                                .padding(10)
+                                                .background(Circle().fill(Color.orange.opacity(0.8)))
+                                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                                .padding(12)
+                                        }
+                                        Spacer()
+                                    }
+                                    .frame(height: 220)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 4)
+
+                            // Motivational unlock banner
+                            if gift.status == "completed" {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "party.popper.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.green)
+                                    Text("Your gift is unlocked!")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.green)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.green.opacity(0.15))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .padding(.horizontal, 20)
+                            } else {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.orange)
+                                    Text("Complete the challenge to unlock your gift!")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.orange)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.orange.opacity(0.15))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .padding(.horizontal, 20)
+                            }
                         }
-                        .padding(.top, 20)
 
                         // Challenge Section
                         if let challengeType = gift.challengeType, !challengeType.isEmpty {
@@ -2917,14 +3023,43 @@ struct GiftDetailScreen: View {
                                         .foregroundColor(.white)
                                 }
 
-                                Text(challengeType)
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.white)
+                                if !isSentGift && gift.status != "completed" {
+                                    // Enhanced challenge section for locked received gifts
+                                    if let description = gift.challengeDescription, !description.isEmpty {
+                                        Text(description)
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                    } else {
+                                        Text(challengeType)
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
 
-                                if let description = gift.challengeDescription, !description.isEmpty {
-                                    Text(description)
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.gray)
+                                    // Honey Badger motivational quote
+                                    HStack(spacing: 10) {
+                                        Text("🦡")
+                                            .font(.system(size: 24))
+                                        Text(badgerQuotes.randomElement() ?? badgerQuotes[0])
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(HBTheme.primaryYellow)
+                                            .italic()
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(HBTheme.primaryYellow.opacity(0.1))
+                                    )
+                                } else {
+                                    Text(challengeType)
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white)
+
+                                    if let description = gift.challengeDescription, !description.isEmpty {
+                                        Text(description)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.gray)
+                                    }
                                 }
 
                                 ChallengeProgressView(
@@ -3002,17 +3137,24 @@ struct GiftDetailScreen: View {
                         if let message = gift.message ?? gift.personalNote, !message.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "envelope.fill")
+                                    Image(systemName: "quote.opening")
                                         .foregroundColor(HBTheme.primaryYellow)
                                     Text("Personal Message")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.white)
                                 }
 
-                                Text(message)
-                                    .font(.system(size: 15))
+                                Text("\"\(message)\"")
+                                    .font(.system(size: 16))
                                     .foregroundColor(.white.opacity(0.9))
                                     .italic()
+
+                                if !isSentGift, let senderName = gift.senderName, !senderName.isEmpty {
+                                    Text("— \(senderName)")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.gray)
+                                        .frame(maxWidth: .infinity, alignment: .trailing)
+                                }
                             }
                             .padding(20)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -3089,6 +3231,167 @@ struct DetailRow: View {
     }
 }
 
+// MARK: - Card Template System
+
+struct CardTemplate: Identifiable {
+    let id: String
+    let occasion: String
+    let emoji: String
+    let tagline: String
+    let colors: [Color]
+}
+
+let cardTemplates: [CardTemplate] = [
+    // Birthday
+    CardTemplate(id: "birthday-warm", occasion: "Birthday", emoji: "🎂", tagline: "Happy Birthday!", colors: [Color(red: 1.0, green: 0.6, blue: 0.2), Color(red: 1.0, green: 0.3, blue: 0.4)]),
+    CardTemplate(id: "birthday-party", occasion: "Birthday", emoji: "🎉", tagline: "It's Your Day!", colors: [Color(red: 0.6, green: 0.2, blue: 0.9), Color(red: 1.0, green: 0.4, blue: 0.7)]),
+    CardTemplate(id: "birthday-star", occasion: "Birthday", emoji: "⭐", tagline: "Born to Shine!", colors: [Color(red: 0.1, green: 0.2, blue: 0.5), Color(red: 0.9, green: 0.7, blue: 0.1)]),
+    // Congratulations
+    CardTemplate(id: "congrats-trophy", occasion: "Congratulations", emoji: "🏆", tagline: "You Did It!", colors: [Color(red: 0.9, green: 0.7, blue: 0.1), Color(red: 0.8, green: 0.5, blue: 0.0)]),
+    CardTemplate(id: "congrats-rocket", occasion: "Congratulations", emoji: "🚀", tagline: "Sky's the Limit!", colors: [Color(red: 0.1, green: 0.3, blue: 0.7), Color(red: 0.4, green: 0.1, blue: 0.8)]),
+    // Thank You
+    CardTemplate(id: "thanks-heart", occasion: "Thank You", emoji: "💛", tagline: "Thank You!", colors: [Color(red: 1.0, green: 0.8, blue: 0.2), Color(red: 1.0, green: 0.5, blue: 0.3)]),
+    CardTemplate(id: "thanks-flower", occasion: "Thank You", emoji: "🌻", tagline: "So Grateful!", colors: [Color(red: 0.2, green: 0.6, blue: 0.3), Color(red: 0.9, green: 0.8, blue: 0.1)]),
+    // Just Because
+    CardTemplate(id: "justbecause-bee", occasion: "Just Because", emoji: "🐝", tagline: "Just Because!", colors: [Color(red: 1.0, green: 0.8, blue: 0.0), Color(red: 0.2, green: 0.2, blue: 0.2)]),
+    CardTemplate(id: "justbecause-rainbow", occasion: "Just Because", emoji: "🌈", tagline: "Thinking of You!", colors: [Color(red: 0.3, green: 0.7, blue: 1.0), Color(red: 0.9, green: 0.4, blue: 0.8)]),
+    CardTemplate(id: "justbecause-sun", occasion: "Just Because", emoji: "☀️", tagline: "You're Awesome!", colors: [Color(red: 1.0, green: 0.6, blue: 0.0), Color(red: 1.0, green: 0.9, blue: 0.3)]),
+    // Holiday
+    CardTemplate(id: "holiday-tree", occasion: "Holiday", emoji: "🎄", tagline: "Happy Holidays!", colors: [Color(red: 0.1, green: 0.5, blue: 0.2), Color(red: 0.8, green: 0.1, blue: 0.1)]),
+    CardTemplate(id: "holiday-gift", occasion: "Holiday", emoji: "🎁", tagline: "Tis the Season!", colors: [Color(red: 0.7, green: 0.0, blue: 0.1), Color(red: 0.2, green: 0.4, blue: 0.2)]),
+    // Get Well
+    CardTemplate(id: "getwell-sun", occasion: "Get Well", emoji: "🌞", tagline: "Get Well Soon!", colors: [Color(red: 0.3, green: 0.7, blue: 0.9), Color(red: 0.9, green: 0.9, blue: 0.3)]),
+    CardTemplate(id: "getwell-clover", occasion: "Get Well", emoji: "🍀", tagline: "Sending Good Vibes!", colors: [Color(red: 0.1, green: 0.6, blue: 0.3), Color(red: 0.5, green: 0.9, blue: 0.6)])
+]
+
+struct GiftCardView: View {
+    let cardImageUrl: String?
+    let occasion: String
+    let height: CGFloat
+
+    init(cardImageUrl: String? = nil, occasion: String = "Just Because", height: CGFloat = 220) {
+        self.cardImageUrl = cardImageUrl
+        self.occasion = occasion
+        self.height = height
+    }
+
+    private var template: CardTemplate {
+        if let url = cardImageUrl, url.hasPrefix("template:") {
+            let templateId = String(url.dropFirst("template:".count))
+            if let found = cardTemplates.first(where: { $0.id == templateId }) {
+                return found
+            }
+        }
+        // Fallback: first template for the occasion, or first overall
+        return cardTemplates.first(where: { $0.occasion == occasion }) ?? cardTemplates[0]
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(LinearGradient(
+                    colors: template.colors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+
+            VStack(spacing: 8) {
+                Text(template.emoji)
+                    .font(.system(size: 52))
+                Text(template.tagline)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+            }
+        }
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+}
+
+struct CardDesignStepView: View {
+    let occasion: String
+    @Binding var selectedTemplate: String
+
+    private var filteredTemplates: [CardTemplate] {
+        let templates = cardTemplates.filter { $0.occasion == occasion }
+        return templates.isEmpty ? cardTemplates : templates
+    }
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 16),
+        GridItem(.flexible(), spacing: 16)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Design Your Card")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 20)
+
+            Text("Choose a card for your recipient")
+                .font(.system(size: 15))
+                .foregroundColor(.gray)
+                .padding(.horizontal, 20)
+
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(filteredTemplates) { template in
+                    Button(action: {
+                        selectedTemplate = template.id
+                    }) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(LinearGradient(
+                                    colors: template.colors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ))
+                                .frame(height: 140)
+
+                            VStack(spacing: 6) {
+                                Text(template.emoji)
+                                    .font(.system(size: 44))
+                                Text(template.tagline)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                            }
+
+                            if selectedTemplate == template.id {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(HBTheme.primaryYellow, lineWidth: 3)
+                                    .frame(height: 140)
+
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(HBTheme.primaryYellow)
+                                            .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
+                                            .padding(8)
+                                    }
+                                    Spacer()
+                                }
+                                .frame(height: 140)
+                            }
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .onAppear {
+            if selectedTemplate.isEmpty {
+                selectedTemplate = filteredTemplates.first?.id ?? ""
+            }
+        }
+    }
+}
+
 // MARK: - Send Badger Screen
 
 struct SendBadgerScreen: View {
@@ -3120,6 +3423,7 @@ struct SendBadgerScreen: View {
     @State private var giftCardConfigured = false
     @State private var currentSplashImage = "HoneyBadger_toon"
     @State private var smsConsentAcknowledged = false
+    @State private var selectedCardTemplate = ""
 
     let badgerImages = ["HoneyBadger_toon", "CyberBadger", "honey-badger-ninja"]
     let unlockCategories = ["Simple Unlock", "Motivating Unlock"]
@@ -3179,6 +3483,13 @@ struct SendBadgerScreen: View {
                                     .foregroundColor(HBTheme.primaryYellow)
                                     .padding(.top, 20)
                             } else if currentStep == 4 {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 60, height: 60)
+                                    .foregroundColor(HBTheme.primaryYellow)
+                                    .padding(.top, 20)
+                            } else if currentStep == 5 {
                                 Image(systemName: "gift.fill")
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
@@ -3211,6 +3522,11 @@ struct SendBadgerScreen: View {
                                     challengePrompt: $challengePrompt,
                                     occasion: $occasion,
                                     occasions: occasions
+                                )
+                            } else if currentStep == 4 {
+                                CardDesignStepView(
+                                    occasion: occasion,
+                                    selectedTemplate: $selectedCardTemplate
                                 )
                             } else {
                                 GiftDetailsView(
@@ -3245,7 +3561,7 @@ struct SendBadgerScreen: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .black))
                                         .scaleEffect(0.8)
                                 }
-                                Text(sendingBadger ? "SENDING..." : (currentStep == 4 ? "SEND BADGER" : "NEXT"))
+                                Text(sendingBadger ? "SENDING..." : (currentStep == 5 ? "SEND BADGER" : "NEXT"))
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(.black)
                             }
@@ -3319,7 +3635,8 @@ struct SendBadgerScreen: View {
                 return !motivatingChallengeGoal.isEmpty && !motivatingChallengeDays.isEmpty
             }
         case 3: return !challengePrompt.isEmpty
-        case 4: return true
+        case 4: return true  // Card selection is optional
+        case 5: return true
         default: return false
         }
     }
@@ -3341,7 +3658,7 @@ struct SendBadgerScreen: View {
     }
 
     private func nextStepOrSend() {
-        if currentStep < 4 {
+        if currentStep < 5 {
             // Pick a new random badger for the flash
             currentSplashImage = badgerImages.randomElement() ?? "HoneyBadger_toon"
             withAnimation(.easeIn(duration: 0.15)) {
@@ -3383,6 +3700,7 @@ struct SendBadgerScreen: View {
                     "giftAmount": giftAmount,
                     "message": message,
                     "senderName": senderName,
+                    "cardImageUrl": selectedCardTemplate.isEmpty ? "" : "template:\(selectedCardTemplate)",
                     // SMS consent acknowledgment
                     "smsConsentAcknowledged": smsConsentAcknowledged,
                     "smsConsentTimestamp": ISO8601DateFormatter().string(from: Date()),

@@ -544,13 +544,14 @@ struct Gift: Codable, Identifiable {
     let deliveryMethod: String?
     let reminderFrequency: String?
     let verificationType: String?
+    let cardImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id, recipientPhone, recipientEmail, recipientName
         case giftType, giftValue, challengeType, status, createdAt
         case senderName, senderEmail, challengeDescription
         case personalNote, message, duration, deliveryMethod
-        case reminderFrequency, verificationType
+        case reminderFrequency, verificationType, cardImageUrl
     }
 
     init(from decoder: Decoder) throws {
@@ -572,6 +573,7 @@ struct Gift: Codable, Identifiable {
         deliveryMethod = try container.decodeIfPresent(String.self, forKey: .deliveryMethod)
         reminderFrequency = try container.decodeIfPresent(String.self, forKey: .reminderFrequency)
         verificationType = try container.decodeIfPresent(String.self, forKey: .verificationType)
+        cardImageUrl = try container.decodeIfPresent(String.self, forKey: .cardImageUrl)
 
         // Handle duration which might come as Int or String
         if let durationInt = try? container.decodeIfPresent(Int.self, forKey: .duration) {
