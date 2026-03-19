@@ -67,6 +67,15 @@ struct HoneyBadgerAPIConfig {
             return "/api/recipients/\(phone)/gifts"
         }
 
+        // Gift action endpoints
+        static func unlockGift(id: String) -> String {
+            return "/api/gifts/\(id)/unlock"
+        }
+
+        static func nudgeGift(id: String) -> String {
+            return "/api/gifts/\(id)/nudge"
+        }
+
         // SMS Consent Endpoints
         static let smsConsentStatus = "/api/sms/consent-status"
 

@@ -110,6 +110,30 @@ class GiftStateManager: ObservableObject {
         }
     }
 
+    // MARK: - Gift Actions (Sender)
+
+    func unlockGift(giftId: String) async -> Bool {
+        do {
+            try await networkManager.unlockGift(giftId: giftId)
+            // Refresh sent gifts to update status
+            await refreshSentGifts()
+            return true
+        } catch {
+            print("❌ GiftStateManager: Error unlocking gift: \(error)")
+            return false
+        }
+    }
+
+    func sendNudge(giftId: String, customMessage: String? = nil) async -> Bool {
+        do {
+            try await networkManager.sendNudge(giftId: giftId, customMessage: customMessage)
+            return true
+        } catch {
+            print("❌ GiftStateManager: Error sending nudge: \(error)")
+            return false
+        }
+    }
+
     // MARK: - Challenge Submission
 
     func submitChallengePhoto(giftId: String, imageData: Data) async -> Bool {

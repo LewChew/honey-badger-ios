@@ -2838,7 +2838,17 @@ struct GiftDetailScreen: View {
     let gift: Gift
     var isSentGift: Bool = true
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var giftStateManager = GiftStateManager.shared
     @State private var showPhotoSubmission = false
+    @State private var showUnlockConfirmation = false
+    @State private var showNudgeSheet = false
+    @State private var nudgeMessage = ""
+    @State private var isUnlocking = false
+    @State private var isNudging = false
+    @State private var showUnlockSuccess = false
+    @State private var showNudgeSuccess = false
+    @State private var showActionError = false
+    @State private var actionErrorMessage = ""
 
     private let badgerQuotes = [
         "Honey Badger believes in you! 💪",
@@ -2922,6 +2932,62 @@ struct GiftDetailScreen: View {
                                 Capsule()
                                     .fill((gift.status == "completed" ? Color.green : Color.orange).opacity(0.2))
                             )
+
+                            // Sender action buttons for locked gifts
+                            if isSentGift && gift.status != "completed" {
+                                VStack(spacing: 12) {
+                                    // Unlock Gift button
+                                    Button(action: { showUnlockConfirmation = true }) {
+                                        HStack(spacing: 10) {
+                                            if isUnlocking {
+                                                ProgressView()
+                                                    .tint(.black)
+                                            } else {
+                                                Image(systemName: "lock.open.fill")
+                                                    .font(.system(size: 16))
+                                            }
+                                            Text("UNLOCK GIFT")
+                                                .font(.system(size: 15, weight: .bold))
+                                        }
+                                        .foregroundColor(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            LinearGradient(
+                                                colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .cornerRadius(30)
+                                    }
+                                    .disabled(isUnlocking)
+
+                                    // Send Nudge button
+                                    Button(action: { showNudgeSheet = true }) {
+                                        HStack(spacing: 10) {
+                                            if isNudging {
+                                                ProgressView()
+                                                    .tint(HBTheme.primaryYellow)
+                                            } else {
+                                                Image(systemName: "bell.badge.fill")
+                                                    .font(.system(size: 16))
+                                            }
+                                            Text("SEND NUDGE")
+                                                .font(.system(size: 15, weight: .bold))
+                                        }
+                                        .foregroundColor(HBTheme.primaryYellow)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 30)
+                                                .stroke(HBTheme.primaryYellow, lineWidth: 2)
+                                        )
+                                    }
+                                    .disabled(isNudging)
+                                }
+                                .padding(.horizontal, 20)
+                            }
                         } else {
                             // RECEIVED GIFT: Full-width card image with sender overlay
                             ZStack(alignment: .bottom) {
@@ -3227,6 +3293,137 @@ struct GiftDetailScreen: View {
         .background(HBTheme.darkBg)
         .sheet(isPresented: $showPhotoSubmission) {
             ChallengePhotoSubmissionSheet(gift: gift, isPresented: $showPhotoSubmission)
+        }
+        .alert("Unlock Gift?", isPresented: $showUnlockConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Unlock", role: .destructive) {
+                Task {
+                    isUnlocking = true
+                    let success = await giftStateManager.unlockGift(giftId: gift.id)
+                    isUnlocking = false
+                    if success {
+                        showUnlockSuccess = true
+                    } else {
+                        actionErrorMessage = "Failed to unlock gift. Please try again."
+                        showActionError = true
+                    }
+                }
+            }
+        } message: {
+            Text("Are you sure? This bypasses the challenge and unlocks the gift immediately for the recipient.")
+        }
+        .alert("Gift Unlocked!", isPresented: $showUnlockSuccess) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("The gift has been unlocked and the recipient has been notified.")
+        }
+        .alert("Error", isPresented: $showActionError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(actionErrorMessage)
+        }
+        .sheet(isPresented: $showNudgeSheet) {
+            NavigationView {
+                ZStack {
+                    HBTheme.darkBg.ignoresSafeArea()
+                    VStack(spacing: 24) {
+                        Image(systemName: "bell.badge.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(HBTheme.primaryYellow)
+                            .padding(.top, 20)
+
+                        Text("Send a Nudge")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text("Remind \(gift.recipientName ?? "the recipient") to complete their challenge!")
+                            .font(.system(size: 15))
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Custom Message (optional)")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(HBTheme.primaryYellow.opacity(0.8))
+                            TextField("Add a personal nudge message...", text: $nudgeMessage, axis: .vertical)
+                                .textFieldStyle(.plain)
+                                .foregroundColor(.white)
+                                .padding(14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.white.opacity(0.08))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(HBTheme.primaryYellow.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .lineLimit(3...6)
+                        }
+                        .padding(.horizontal, 20)
+
+                        Button(action: {
+                            Task {
+                                isNudging = true
+                                let message = nudgeMessage.isEmpty ? nil : nudgeMessage
+                                let success = await giftStateManager.sendNudge(giftId: gift.id, customMessage: message)
+                                isNudging = false
+                                showNudgeSheet = false
+                                nudgeMessage = ""
+                                if success {
+                                    showNudgeSuccess = true
+                                } else {
+                                    actionErrorMessage = "Failed to send nudge. Please try again."
+                                    showActionError = true
+                                }
+                            }
+                        }) {
+                            HStack(spacing: 10) {
+                                if isNudging {
+                                    ProgressView()
+                                        .tint(.black)
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                        .font(.system(size: 16))
+                                }
+                                Text("SEND NUDGE")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(30)
+                        }
+                        .disabled(isNudging)
+                        .padding(.horizontal, 20)
+
+                        Spacer()
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            showNudgeSheet = false
+                            nudgeMessage = ""
+                        }
+                        .foregroundColor(HBTheme.primaryYellow)
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+        .alert("Nudge Sent!", isPresented: $showNudgeSuccess) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("A reminder has been sent to \(gift.recipientName ?? "the recipient").")
         }
     }
 

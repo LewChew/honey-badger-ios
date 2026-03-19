@@ -450,6 +450,54 @@ class NetworkManager: ObservableObject {
         }
     }
 
+    // MARK: - Gift Action Methods
+
+    func unlockGift(giftId: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.unlockGift(id: giftId))")!
+        let request = authenticatedRequest(url: url, method: "POST")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Gift unlocked successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to unlock gift")
+        }
+    }
+
+    func sendNudge(giftId: String, customMessage: String? = nil) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.nudgeGift(id: giftId))")!
+        var body: [String: Any]? = nil
+        if let customMessage = customMessage, !customMessage.isEmpty {
+            body = ["customMessage": customMessage]
+        }
+        let request = authenticatedRequest(url: url, method: "POST", body: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Nudge sent successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to send nudge")
+        }
+    }
+
     // MARK: - Helper Methods
 
     // MARK: - Challenge Submission
