@@ -1118,6 +1118,8 @@ struct DashboardScreen: View {
     @State private var contacts: [Contact] = []
     @State private var selectedGift: Gift? = nil
     @State private var showGiftDetail = false
+    @State private var selectedCompletedGift: Gift? = nil
+    @State private var showCompletedGiftDetail = false
 
     // Use shared state manager for gifts
     private var sentGifts: [Gift] {
@@ -1172,6 +1174,11 @@ struct DashboardScreen: View {
 
                         // Badgers Section
                         badgersSection
+
+                        // Badgers of the Past Section
+                        if giftStateManager.mostRecentCompletedGift != nil {
+                            badgersOfThePastSection
+                        }
 
                         // Your People Section
                         VStack(alignment: .leading, spacing: 16) {
@@ -1327,7 +1334,7 @@ struct DashboardScreen: View {
         HStack(spacing: 12) {
             // Sent
             summaryCard(
-                count: sentGifts.filter { $0.status != "completed" }.count,
+                count: giftStateManager.activeSentGifts.count,
                 label: "Sent",
                 icon: "paperplane.fill",
                 color: HBTheme.primaryYellow,
@@ -1339,7 +1346,7 @@ struct DashboardScreen: View {
 
             // Received
             summaryCard(
-                count: giftStateManager.receivedGifts.filter { $0.status != "completed" }.count,
+                count: giftStateManager.activeReceivedGifts.count,
                 label: "Received",
                 icon: "gift.fill",
                 color: Color.green,
@@ -1389,11 +1396,11 @@ struct DashboardScreen: View {
 
     // Combined count for determining if we should show "See All"
     private var totalBadgersCount: Int {
-        giftStateManager.pendingApprovals.count + sentGifts.count + giftStateManager.receivedGifts.count
+        giftStateManager.pendingApprovals.count + giftStateManager.activeSentGifts.count + giftStateManager.activeReceivedGifts.count
     }
 
     private var hasBadgersContent: Bool {
-        !giftStateManager.pendingApprovals.isEmpty || !sentGifts.isEmpty || !giftStateManager.receivedGifts.isEmpty
+        !giftStateManager.pendingApprovals.isEmpty || !giftStateManager.activeSentGifts.isEmpty || !giftStateManager.activeReceivedGifts.isEmpty
     }
 
     private var badgersSection: some View {
@@ -1444,6 +1451,102 @@ struct DashboardScreen: View {
         .padding(.horizontal, 20)
     }
 
+    private var badgersOfThePastSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundColor(HBTheme.primaryYellow)
+                    Text("Badgers of the Past")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+            }
+
+            if let gift = giftStateManager.mostRecentCompletedGift {
+                let isSent = giftStateManager.sentGifts.contains(where: { $0.id == gift.id && $0.isRedeemed })
+                Button(action: {
+                    selectedCompletedGift = gift
+                    showCompletedGiftDetail = true
+                }) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.2))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(isSent ? (gift.recipientName ?? "Recipient") : (gift.senderName ?? "Sender"))
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white)
+                            HStack(spacing: 6) {
+                                Text(gift.giftType)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.gray)
+                                if let value = gift.giftValue, !value.isEmpty {
+                                    Text("$\(value)")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(HBTheme.primaryYellow)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("Collected")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.green)
+                            if let dateStr = gift.redeemedAt {
+                                Text(formatRelativeDate(dateStr))
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.05))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(HBTheme.cardBg)
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+        )
+        .padding(.horizontal, 20)
+        .sheet(item: $selectedCompletedGift) { gift in
+            let isSent = giftStateManager.sentGifts.contains(where: { $0.id == gift.id && $0.isRedeemed })
+            GiftDetailScreen(gift: gift, isSentGift: isSent)
+                .presentationBackground(HBTheme.darkBg)
+        }
+    }
+
+    private func formatRelativeDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateString) {
+            let rel = RelativeDateTimeFormatter()
+            rel.unitsStyle = .short
+            return rel.localizedString(for: date, relativeTo: Date())
+        }
+        return dateString
+    }
+
     private var badgersEmptyState: some View {
         VStack(spacing: 16) {
             ZStack {
@@ -1485,13 +1588,14 @@ struct DashboardScreen: View {
 
     private var badgersList: some View {
         let pendingApprovals = giftStateManager.pendingApprovals
-        let received = giftStateManager.receivedGifts
+        let activeSent = giftStateManager.activeSentGifts
+        let activeReceived = giftStateManager.activeReceivedGifts
         let maxItems = 3
         let pendingCount = min(pendingApprovals.count, maxItems)
         var remaining = max(0, maxItems - pendingCount)
-        let sentToShow = Array(sentGifts.prefix(remaining))
+        let sentToShow = Array(activeSent.prefix(remaining))
         remaining = max(0, remaining - sentToShow.count)
-        let receivedToShow = Array(received.prefix(remaining))
+        let receivedToShow = Array(activeReceived.prefix(remaining))
 
         return VStack(spacing: 8) {
             // Pending approvals first
@@ -2536,11 +2640,11 @@ struct BadgersInTheWildScreen: View {
     }
 
     private var sentGifts: [Gift] {
-        giftStateManager.sentGifts
+        giftStateManager.activeSentGifts
     }
 
     private var receivedGifts: [Gift] {
-        giftStateManager.receivedGifts
+        giftStateManager.activeReceivedGifts
     }
 
     var body: some View {
@@ -2849,6 +2953,9 @@ struct GiftDetailScreen: View {
     @State private var showNudgeSuccess = false
     @State private var showActionError = false
     @State private var actionErrorMessage = ""
+    @State private var showCollectConfirmation = false
+    @State private var isCollecting = false
+    @State private var showCollectSuccess = false
 
     private let badgerQuotes = [
         "Honey Badger believes in you! 💪",
@@ -2989,13 +3096,14 @@ struct GiftDetailScreen: View {
                                 .padding(.horizontal, 20)
                             }
                         } else {
-                            // RECEIVED GIFT: Full-width card image with sender overlay
+                            // RECEIVED GIFT: Honey Badger image at top with sender overlay
                             ZStack(alignment: .bottom) {
-                                GiftCardView(
-                                    cardImageUrl: gift.cardImageUrl,
-                                    occasion: "Just Because",
-                                    height: 220
-                                )
+                                Image("HoneyBadger_toon")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(height: 180)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 12)
 
                                 // Sender name overlay
                                 HStack {
@@ -3017,114 +3125,164 @@ struct GiftDetailScreen: View {
                                     }
                                 }
                                 .padding(16)
-
-                                // Lock/status badge for non-completed gifts
-                                if gift.status != "completed" {
-                                    VStack {
-                                        HStack {
-                                            Spacer()
-                                            Image(systemName: gift.status == "pending_approval" ? "clock.fill" : "lock.fill")
-                                                .font(.system(size: 16))
-                                                .foregroundColor(.white)
-                                                .padding(10)
-                                                .background(Circle().fill((gift.status == "pending_approval" ? Color.blue : Color.orange).opacity(0.8)))
-                                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                                .padding(12)
-                                        }
-                                        Spacer()
-                                    }
-                                    .frame(height: 220)
-                                }
                             }
                             .padding(.horizontal, 20)
                             .padding(.top, 4)
 
-                            // Motivational unlock banner
-                            if gift.status == "completed" {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "party.popper.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.green)
-                                    Text("Your gift is unlocked!")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.green)
+                            // Gift type and value
+                            HStack(spacing: 8) {
+                                Text(gift.giftType)
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(.white)
+                                if let value = gift.giftValue, !value.isEmpty {
+                                    Text("$\(value)")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(HBTheme.primaryYellow)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.green.opacity(0.15))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                                        )
-                                )
-                                .padding(.horizontal, 20)
-                            } else if gift.status == "pending_approval" {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "clock.badge.checkmark.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.blue)
-                                    Text("Photo submitted — Awaiting approval")
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(.blue)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.blue.opacity(0.15))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                        )
-                                )
-                                .padding(.horizontal, 20)
-                            } else {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(.orange)
-                                    Text("Complete the challenge to unlock your gift!")
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(.orange)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.orange.opacity(0.15))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-                                        )
-                                )
-                                .padding(.horizontal, 20)
                             }
 
-                            // Submit challenge photo button for locked received gifts
-                            if !isSentGift && gift.status != "completed" && gift.status != "pending_approval" {
-                                Button(action: { showPhotoSubmission = true }) {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "camera.fill")
-                                            .font(.system(size: 18))
-                                        Text("SUBMIT CHALLENGE PHOTO")
-                                            .font(.system(size: 16, weight: .bold))
-                                    }
-                                    .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .cornerRadius(30)
-                                }
-                                .padding(.horizontal, 20)
+                            // Status badge
+                            HStack(spacing: 8) {
+                                Image(systemName: gift.isRedeemed ? "checkmark.seal.fill" : gift.isUnlocked ? "lock.open.fill" : gift.status == "pending_approval" ? "clock.fill" : "lock.fill")
+                                    .font(.system(size: 14))
+                                Text(gift.isRedeemed ? "Collected" : gift.isUnlocked ? "Unlocked" : gift.status == "pending_approval" ? "Pending Approval" : "Locked")
+                                    .font(.system(size: 16, weight: .semibold))
                             }
+                            .foregroundColor(gift.isRedeemed ? .green : gift.isUnlocked ? .green : gift.status == "pending_approval" ? .blue : .orange)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill((gift.isRedeemed ? Color.green : gift.isUnlocked ? Color.green : gift.status == "pending_approval" ? Color.blue : Color.orange).opacity(0.2))
+                            )
+
+                            // Recipient action buttons
+                            VStack(spacing: 12) {
+                                if gift.isRedeemed {
+                                    // Gift Collected badge
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "checkmark.seal.fill")
+                                            .font(.system(size: 16))
+                                        Text("Gift Collected")
+                                            .font(.system(size: 16, weight: .semibold))
+                                        if let dateStr = gift.redeemedAt, !dateStr.isEmpty {
+                                            Text("on \(formatCollectedDate(dateStr))")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.green.opacity(0.7))
+                                        }
+                                    }
+                                    .foregroundColor(.green)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 30)
+                                            .fill(Color.green.opacity(0.15))
+                                    )
+                                } else if gift.isUnlocked {
+                                    // Collect Gift button
+                                    Button(action: { showCollectConfirmation = true }) {
+                                        HStack(spacing: 10) {
+                                            if isCollecting {
+                                                ProgressView()
+                                                    .tint(.black)
+                                            } else {
+                                                Image(systemName: "gift.fill")
+                                                    .font(.system(size: 18))
+                                            }
+                                            Text("COLLECT GIFT")
+                                                .font(.system(size: 16, weight: .bold))
+                                        }
+                                        .foregroundColor(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(
+                                            LinearGradient(
+                                                colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 0.85, green: 0.65, blue: 0.13)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .cornerRadius(30)
+                                        .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.4), radius: 8, x: 0, y: 4)
+                                    }
+                                    .disabled(isCollecting)
+                                } else if gift.status != "completed" {
+                                    // Submit challenge photo for locked gifts
+                                    if gift.status != "pending_approval" {
+                                        Button(action: { showPhotoSubmission = true }) {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "camera.fill")
+                                                    .font(.system(size: 18))
+                                                Text("SUBMIT CHALLENGE PHOTO")
+                                                    .font(.system(size: 16, weight: .bold))
+                                            }
+                                            .foregroundColor(.black)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .background(
+                                                LinearGradient(
+                                                    colors: [HBTheme.primaryYellow, HBTheme.primaryYellow.opacity(0.85)],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .cornerRadius(30)
+                                        }
+                                    }
+
+                                    // Unlock Gift button (recipient self-unlock)
+                                    Button(action: { showUnlockConfirmation = true }) {
+                                        HStack(spacing: 10) {
+                                            if isUnlocking {
+                                                ProgressView()
+                                                    .tint(.black)
+                                            } else {
+                                                Image(systemName: "lock.open.fill")
+                                                    .font(.system(size: 16))
+                                            }
+                                            Text("UNLOCK GIFT")
+                                                .font(.system(size: 15, weight: .bold))
+                                        }
+                                        .foregroundColor(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            LinearGradient(
+                                                colors: [Color.green, Color.green.opacity(0.85)],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .cornerRadius(30)
+                                    }
+                                    .disabled(isUnlocking)
+                                }
+
+                                // Message Sender button
+                                if let senderEmail = gift.senderEmail, !senderEmail.isEmpty {
+                                    Button(action: {
+                                        if let url = URL(string: "mailto:\(senderEmail)") {
+                                            UIApplication.shared.open(url)
+                                        }
+                                    }) {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "envelope.fill")
+                                                .font(.system(size: 16))
+                                            Text("MESSAGE SENDER")
+                                                .font(.system(size: 15, weight: .bold))
+                                        }
+                                        .foregroundColor(HBTheme.primaryYellow)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 30)
+                                                .stroke(HBTheme.primaryYellow, lineWidth: 2)
+                                        )
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
                         }
 
                         // Challenge Section
@@ -3299,7 +3457,12 @@ struct GiftDetailScreen: View {
             Button("Unlock", role: .destructive) {
                 Task {
                     isUnlocking = true
-                    let success = await giftStateManager.unlockGift(giftId: gift.id)
+                    let success: Bool
+                    if isSentGift {
+                        success = await giftStateManager.unlockGift(giftId: gift.id)
+                    } else {
+                        success = await giftStateManager.recipientUnlockGift(giftId: gift.id)
+                    }
                     isUnlocking = false
                     if success {
                         showUnlockSuccess = true
@@ -3310,17 +3473,44 @@ struct GiftDetailScreen: View {
                 }
             }
         } message: {
-            Text("Are you sure? This bypasses the challenge and unlocks the gift immediately for the recipient.")
+            Text(isSentGift
+                 ? "Are you sure? This bypasses the challenge and unlocks the gift immediately for the recipient."
+                 : "Are you sure you want to unlock this gift now?")
         }
         .alert("Gift Unlocked!", isPresented: $showUnlockSuccess) {
             Button("OK") { dismiss() }
         } message: {
-            Text("The gift has been unlocked and the recipient has been notified.")
+            Text(isSentGift
+                 ? "The gift has been unlocked and the recipient has been notified."
+                 : "Your gift has been unlocked!")
         }
         .alert("Error", isPresented: $showActionError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(actionErrorMessage)
+        }
+        .alert("Collect Gift?", isPresented: $showCollectConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Collect") {
+                Task {
+                    isCollecting = true
+                    let success = await giftStateManager.collectGift(giftId: gift.id)
+                    isCollecting = false
+                    if success {
+                        showCollectSuccess = true
+                    } else {
+                        actionErrorMessage = "Failed to collect gift. Please try again."
+                        showActionError = true
+                    }
+                }
+            }
+        } message: {
+            Text("Mark this gift as collected? This confirms you've redeemed your gift.")
+        }
+        .alert("Gift Collected!", isPresented: $showCollectSuccess) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("Congratulations! Your gift has been collected.")
         }
         .sheet(isPresented: $showNudgeSheet) {
             NavigationView {
@@ -3457,6 +3647,28 @@ struct GiftDetailScreen: View {
         let relativeFormatter = RelativeDateTimeFormatter()
         relativeFormatter.unitsStyle = .full
         return relativeFormatter.localizedString(for: parsedDate, relativeTo: Date())
+    }
+
+    private func formatCollectedDate(_ dateString: String) -> String {
+        let formatters: [DateFormatter] = {
+            let iso8601 = DateFormatter()
+            iso8601.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            let iso8601Simple = DateFormatter()
+            iso8601Simple.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            let sqlDate = DateFormatter()
+            sqlDate.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            return [iso8601, iso8601Simple, sqlDate]
+        }()
+
+        for formatter in formatters {
+            if let date = formatter.date(from: dateString) {
+                let display = DateFormatter()
+                display.dateStyle = .medium
+                display.timeStyle = .none
+                return display.string(from: date)
+            }
+        }
+        return dateString
     }
 }
 

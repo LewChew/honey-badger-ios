@@ -124,6 +124,29 @@ class GiftStateManager: ObservableObject {
         }
     }
 
+    func recipientUnlockGift(giftId: String) async -> Bool {
+        do {
+            try await networkManager.recipientUnlockGift(giftId: giftId)
+            await refreshReceivedGifts()
+            return true
+        } catch {
+            print("❌ GiftStateManager: Error recipient-unlocking gift: \(error)")
+            return false
+        }
+    }
+
+    func collectGift(giftId: String) async -> Bool {
+        do {
+            try await networkManager.collectGift(giftId: giftId)
+            await refreshReceivedGifts()
+            await refreshSentGifts()
+            return true
+        } catch {
+            print("❌ GiftStateManager: Error collecting gift: \(error)")
+            return false
+        }
+    }
+
     func sendNudge(giftId: String, customMessage: String? = nil) async -> Bool {
         do {
             try await networkManager.sendNudge(giftId: giftId, customMessage: customMessage)
@@ -162,6 +185,23 @@ class GiftStateManager: ObservableObject {
 
     var isLoading: Bool {
         isLoadingSent || isLoadingReceived || isLoadingApprovals
+    }
+
+    var activeSentGifts: [Gift] {
+        sentGifts.filter { !$0.isRedeemed }
+    }
+
+    var activeReceivedGifts: [Gift] {
+        receivedGifts.filter { !$0.isRedeemed }
+    }
+
+    var completedGifts: [Gift] {
+        let redeemed = sentGifts.filter { $0.isRedeemed } + receivedGifts.filter { $0.isRedeemed }
+        return redeemed.sorted { ($0.redeemedAt ?? "") > ($1.redeemedAt ?? "") }
+    }
+
+    var mostRecentCompletedGift: Gift? {
+        completedGifts.first
     }
 
     // MARK: - Clear State (for logout)

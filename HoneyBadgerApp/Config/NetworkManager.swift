@@ -473,6 +473,48 @@ class NetworkManager: ObservableObject {
         }
     }
 
+    func recipientUnlockGift(giftId: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.recipientUnlockGift(id: giftId))")!
+        let request = authenticatedRequest(url: url, method: "POST")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Gift recipient-unlocked successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to unlock gift")
+        }
+    }
+
+    func collectGift(giftId: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.collectGift(id: giftId))")!
+        let request = authenticatedRequest(url: url, method: "POST")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Gift collected successfully")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to collect gift")
+        }
+    }
+
     func sendNudge(giftId: String, customMessage: String? = nil) async throws {
         let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.nudgeGift(id: giftId))")!
         var body: [String: Any]? = nil
@@ -635,6 +677,18 @@ struct Gift: Codable, Identifiable {
     let verificationType: String?
     let cardImageUrl: String?
     let challengeId: String?
+    let unlocked: Bool?
+    let unlockedAt: String?
+    let redeemed: Bool?
+    let redeemedAt: String?
+
+    var isUnlocked: Bool {
+        unlocked == true || status == "completed"
+    }
+
+    var isRedeemed: Bool {
+        redeemed == true
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, recipientPhone, recipientEmail, recipientName
@@ -642,7 +696,7 @@ struct Gift: Codable, Identifiable {
         case senderName, senderEmail, challengeDescription
         case personalNote, message, duration, deliveryMethod
         case reminderFrequency, verificationType, cardImageUrl
-        case challengeId
+        case challengeId, unlocked, unlockedAt, redeemed, redeemedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -666,6 +720,10 @@ struct Gift: Codable, Identifiable {
         verificationType = try container.decodeIfPresent(String.self, forKey: .verificationType)
         cardImageUrl = try container.decodeIfPresent(String.self, forKey: .cardImageUrl)
         challengeId = try container.decodeIfPresent(String.self, forKey: .challengeId)
+        unlocked = try container.decodeIfPresent(Bool.self, forKey: .unlocked)
+        unlockedAt = try container.decodeIfPresent(String.self, forKey: .unlockedAt)
+        redeemed = try container.decodeIfPresent(Bool.self, forKey: .redeemed)
+        redeemedAt = try container.decodeIfPresent(String.self, forKey: .redeemedAt)
 
         // Handle duration which might come as Int or String
         if let durationInt = try? container.decodeIfPresent(Int.self, forKey: .duration) {
