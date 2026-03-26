@@ -2829,13 +2829,13 @@ struct EnhancedBadgerRow: View {
 
             // Lock status
             VStack(spacing: 4) {
-                Image(systemName: gift.status == "completed" ? "lock.open.fill" : gift.status == "pending_approval" ? "clock.fill" : "lock.fill")
+                Image(systemName: statusIcon)
                     .font(.system(size: 20))
-                    .foregroundColor(gift.status == "completed" ? .green : gift.status == "pending_approval" ? .blue : .orange)
+                    .foregroundColor(statusColor)
 
-                Text(gift.status == "completed" ? "Unlocked" : gift.status == "pending_approval" ? "Pending" : "Locked")
+                Text(statusLabel)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(gift.status == "completed" ? .green : gift.status == "pending_approval" ? .blue : .orange)
+                    .foregroundColor(statusColor)
             }
 
             Image(systemName: "chevron.right")
@@ -2848,11 +2848,10 @@ struct EnhancedBadgerRow: View {
     }
 
     private var statusColor: Color {
+        if gift.isUnlocked { return .green }
+        if gift.status.lowercased() == "pending_approval" { return .blue }
+        if isSentGift && gift.isReceived { return .purple }
         switch gift.status.lowercased() {
-        case "completed":
-            return .green
-        case "pending_approval":
-            return .blue
         case "pending":
             return .orange
         case "active":
@@ -2863,11 +2862,12 @@ struct EnhancedBadgerRow: View {
     }
 
     private var statusIcon: String {
+        if gift.isUnlocked { return "lock.open.fill" }
+        if gift.status.lowercased() == "pending_approval" { return "clock.badge.checkmark.fill" }
+        if isSentGift && gift.isReceived { return "eye.fill" }
         switch gift.status.lowercased() {
         case "completed":
             return "checkmark.seal.fill"
-        case "pending_approval":
-            return "clock.badge.checkmark.fill"
         case "pending":
             return "clock.fill"
         case "active":
@@ -2875,6 +2875,13 @@ struct EnhancedBadgerRow: View {
         default:
             return "gift.fill"
         }
+    }
+
+    private var statusLabel: String {
+        if gift.isUnlocked { return "Unlocked" }
+        if gift.status.lowercased() == "pending_approval" { return "Pending" }
+        if isSentGift && gift.isReceived { return "Viewed" }
+        return "Locked"
     }
 }
 
@@ -3614,6 +3621,11 @@ struct GiftDetailScreen: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("A reminder has been sent to \(gift.recipientName ?? "the recipient").")
+        }
+        .task {
+            if !isSentGift && !(gift.received == true) {
+                await giftStateManager.markGiftReceived(giftId: gift.id)
+            }
         }
     }
 
@@ -4701,24 +4713,6 @@ struct WhoView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Hero header with envelope image
-            ZStack {
-                // Accent glow behind envelope
-                Circle()
-                    .fill(HBTheme.primaryYellow.opacity(0.1))
-                    .frame(width: 200, height: 200)
-                    .blur(radius: 40)
-                    .offset(y: -10)
-
-                Image("HB_Future_Envelope")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 100)
-                    .scaleEffect(appearAnimation ? 1.0 : 0.8)
-                    .opacity(appearAnimation ? 1.0 : 0.0)
-            }
-            .padding(.top, 8)
-
             // Title
             VStack(spacing: 4) {
                 Text("Who's the lucky one?")

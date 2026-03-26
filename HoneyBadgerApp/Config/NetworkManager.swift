@@ -515,6 +515,27 @@ class NetworkManager: ObservableObject {
         }
     }
 
+    func markGiftReceived(giftId: String) async throws {
+        let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.markGiftReceived(id: giftId))")!
+        let request = authenticatedRequest(url: url, method: "POST")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            print("✅ Gift marked as received")
+        } else if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            self.authToken = nil
+            throw NetworkError.unauthorized
+        } else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw NetworkError.serverError(errorResponse?.message ?? "Failed to mark gift as received")
+        }
+    }
+
     func sendNudge(giftId: String, customMessage: String? = nil) async throws {
         let url = URL(string: "\(HoneyBadgerAPIConfig.baseURL)\(HoneyBadgerAPIConfig.Endpoints.nudgeGift(id: giftId))")!
         var body: [String: Any]? = nil
@@ -681,6 +702,8 @@ struct Gift: Codable, Identifiable {
     let unlockedAt: String?
     let redeemed: Bool?
     let redeemedAt: String?
+    let received: Bool?
+    let receivedAt: String?
 
     var isUnlocked: Bool {
         unlocked == true || status == "completed"
@@ -690,6 +713,10 @@ struct Gift: Codable, Identifiable {
         redeemed == true
     }
 
+    var isReceived: Bool {
+        received == true
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, recipientPhone, recipientEmail, recipientName
         case giftType, giftValue, challengeType, status, createdAt
@@ -697,6 +724,7 @@ struct Gift: Codable, Identifiable {
         case personalNote, message, duration, deliveryMethod
         case reminderFrequency, verificationType, cardImageUrl
         case challengeId, unlocked, unlockedAt, redeemed, redeemedAt
+        case received, receivedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -724,6 +752,8 @@ struct Gift: Codable, Identifiable {
         unlockedAt = try container.decodeIfPresent(String.self, forKey: .unlockedAt)
         redeemed = try container.decodeIfPresent(Bool.self, forKey: .redeemed)
         redeemedAt = try container.decodeIfPresent(String.self, forKey: .redeemedAt)
+        received = try container.decodeIfPresent(Bool.self, forKey: .received)
+        receivedAt = try container.decodeIfPresent(String.self, forKey: .receivedAt)
 
         // Handle duration which might come as Int or String
         if let durationInt = try? container.decodeIfPresent(Int.self, forKey: .duration) {

@@ -147,6 +147,15 @@ class GiftStateManager: ObservableObject {
         }
     }
 
+    func markGiftReceived(giftId: String) async {
+        do {
+            try await networkManager.markGiftReceived(giftId: giftId)
+            await refreshReceivedGifts()
+        } catch {
+            print("❌ GiftStateManager: Error marking gift as received: \(error)")
+        }
+    }
+
     func sendNudge(giftId: String, customMessage: String? = nil) async -> Bool {
         do {
             try await networkManager.sendNudge(giftId: giftId, customMessage: customMessage)
