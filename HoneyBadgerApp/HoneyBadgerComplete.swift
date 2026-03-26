@@ -453,12 +453,12 @@ struct LandingScreen: View {
 
                         // Hero Section
                         VStack(spacing: 24) {
-                            // Logo - clickable to open login
+                            // Hero image - clickable to open login
                             Button(action: { showLogin = true }) {
-                                Image(systemName: "pawprint.circle.fill")
+                                Image("retro-hb-tv")
                                     .resizable()
-                                    .frame(width: 200, height: 200)
-                                    .foregroundColor(HBTheme.primaryYellow)
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: 300)
                                     .shadow(color: HBTheme.primaryYellow.opacity(0.4), radius: 20)
                             }
 
